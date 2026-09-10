@@ -85,8 +85,36 @@ against each provider's daily limit when it finishes.
   deterministically.
 
 ```bash
-python tests_ranking.py    # covers the parsing and aggregation edge cases
+python tests_ranking.py      # ranking parsing and Borda aggregation
+python tests_providers.py    # retry policy, fallback ordering, Retry-After
 ```
+
+## Web API (Phase 2)
+
+```bash
+uvicorn server:app --reload      # then http://127.0.0.1:8000/docs
+```
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/config` | The council roster, so a UI can lay out seats before asking anything |
+| `POST /api/council` | Starts a run, returns a `run_id` immediately |
+| `GET /api/council/{id}/stream` | Server-Sent Events for that run, token by token |
+| `GET /api/council/{id}` | The transcript, live or finished |
+| `GET /api/runs` | Saved run ids |
+
+The `council/` package is unchanged by the server -- it already emitted typed events
+through a callback, so the server only forwards them. Event types:
+
+`stage_changed`, `seat_started`, `seat_token`, `seat_reset`, `seat_finished`,
+`cache_hit`, `review_finished`, `run_finished`, `heartbeat`.
+
+`seat_reset` means discard what you have shown for that seat: the attempt that produced it
+failed and a retry or a fallback model is starting over. Every event names its seat, which
+is what will let the Phase 4 avatars animate off this same stream.
+
+Late subscribers get the full event history before joining live, so opening the stream
+after a run has started still shows the whole session.
 
 ## Where this is going
 

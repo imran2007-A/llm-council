@@ -47,8 +47,26 @@ FAKE_REVIEW = (
 FAKE_VERDICT = "This is a dry-run verdict. No models were called."
 
 
+def _delta_hooks(on_event, seat_id: str, stage: str):
+    """Build the (on_delta, on_reset) pair that turns streamed text into events.
+
+    seat_reset tells a consumer to throw away what it has shown for this seat: the
+    attempt that produced it failed, and a retry or a fallback model is starting over.
+    """
+    if on_event is None:
+        return None, None
+
+    async def on_delta(piece: str) -> None:
+        await _emit(on_event, "seat_token", seat=seat_id, stage=stage, text=piece)
+
+    async def on_reset() -> None:
+        await _emit(on_event, "seat_reset", seat=seat_id, stage=stage)
+
+    return on_delta, on_reset
+
+
 async def _opinion(
-    seat: Seat, question: str, use_cache: bool, dry_run: bool, on_event
+    seat: Seat, question: str, use_cache: bool, dry_run: bool, on_event, stream: bool
 ) -> ModelReply:
     await _emit(on_event, "seat_started", seat=seat.id, stage="opinions")
 
@@ -61,8 +79,10 @@ async def _opinion(
             reply = ModelReply(seat.id, cached)
             await _emit(on_event, "cache_hit", seat=seat.id)
         else:
+            on_delta, on_reset = _delta_hooks(on_event, seat.id, "opinions") if stream else (None, None)
             reply = await call_model(
-                seat, prompts.opinion_messages(question), OPINION_MAX_TOKENS
+                seat, prompts.opinion_messages(question), OPINION_MAX_TOKENS,
+                on_delta=on_delta, on_reset=on_reset,
             )
             if use_cache and reply.ok:
                 storage.cache_put(question, seat.model, reply.text)
@@ -74,7 +94,9 @@ async def _opinion(
     return reply
 
 
-async def _review(seat: Seat, question: str, anon, dry_run: bool, on_event) -> ModelReply:
+async def _review(
+    seat: Seat, question: str, anon, dry_run: bool, on_event, stream: bool
+) -> ModelReply:
     await _emit(on_event, "seat_started", seat=seat.id, stage="review")
 
     if dry_run:
@@ -83,11 +105,13 @@ async def _review(seat: Seat, question: str, anon, dry_run: bool, on_event) -> M
         random.shuffle(shuffled)
         reply = ModelReply(seat.id, FAKE_REVIEW.format(ranking=" > ".join(shuffled)))
     else:
+        on_delta, on_reset = _delta_hooks(on_event, seat.id, "review") if stream else (None, None)
         reply = await call_model(
             seat,
             prompts.review_messages(question, anon.blocks, anon.labels),
             REVIEW_MAX_TOKENS,
             temperature=0.3,  # judging wants less creativity than answering
+            on_delta=on_delta, on_reset=on_reset,
         )
 
     await _emit(
@@ -104,6 +128,7 @@ async def run_council(
     use_cache: bool = False,
     dry_run: bool = False,
     on_event: EventHandler | None = None,
+    stream: bool = False,
 ) -> dict:
     seats = seats or SEATS
     run_id = time.strftime("%Y%m%d-%H%M%S")
@@ -122,7 +147,7 @@ async def run_council(
     # ---- Stage 1: independent first opinions, all at once -------------------
     await _emit(on_event, "stage_changed", stage="opinions")
     results = await asyncio.gather(
-        *(_opinion(s, question, use_cache, dry_run, on_event) for s in seats),
+        *(_opinion(s, question, use_cache, dry_run, on_event, stream) for s in seats),
         return_exceptions=True,
     )
     # return_exceptions=True means one seat blowing up in an unexpected way still
@@ -162,7 +187,7 @@ async def run_council(
         await _emit(on_event, "stage_changed", stage="review")
         reviewer_seats = [s for s in seats if any(r.seat_id == s.id for r in answered)]
         review_results = await asyncio.gather(
-            *(_review(s, question, anon, dry_run, on_event) for s in reviewer_seats),
+            *(_review(s, question, anon, dry_run, on_event, stream) for s in reviewer_seats),
             return_exceptions=True,
         )
 
@@ -207,11 +232,13 @@ async def run_council(
     if dry_run:
         verdict = ModelReply(chairman.id, FAKE_VERDICT)
     else:
+        on_delta, on_reset = _delta_hooks(on_event, chairman.id, "chairman") if stream else (None, None)
         verdict = await call_model(
             chairman,
             prompts.chairman_messages(question, anon.blocks, ranking_text),
             CHAIRMAN_MAX_TOKENS,
             temperature=0.4,
+            on_delta=on_delta, on_reset=on_reset,
         )
 
     await _emit(

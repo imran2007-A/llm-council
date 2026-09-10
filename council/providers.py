@@ -6,6 +6,7 @@ import asyncio
 import os
 import random
 from dataclasses import dataclass, field
+from typing import Awaitable, Callable
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, APIStatusError, APITimeoutError, APIConnectionError
@@ -122,6 +123,52 @@ def _retry_after(exc: APIStatusError) -> float | None:
         return None  # HTTP-date form; not worth parsing for our purposes
 
 
+DeltaHandler = Callable[[str], Awaitable[None] | None]
+ResetHandler = Callable[[], Awaitable[None] | None]
+
+
+async def _fire(handler, *args) -> None:
+    if handler is None:
+        return
+    result = handler(*args)
+    if asyncio.iscoroutine(result):
+        await result
+
+
+async def _stream_completion(
+    client: AsyncOpenAI,
+    model: str,
+    messages: list[dict],
+    max_tokens: int,
+    temperature: float,
+    on_delta: DeltaHandler,
+) -> str:
+    """Stream a completion, handing each text fragment to on_delta as it arrives.
+
+    The caller is told about deltas optimistically. If this attempt then fails and we
+    retry, the caller is responsible for discarding what it already showed -- which is why
+    council.py emits a seat_reset event rather than letting a UI keep half an answer.
+    """
+    parts: list[str] = []
+    stream = await client.chat.completions.create(
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        stream=True,
+    )
+    async for chunk in stream:
+        if not chunk.choices:
+            continue
+        piece = chunk.choices[0].delta.content or ""
+        if piece:
+            parts.append(piece)
+            result = on_delta(piece)
+            if asyncio.iscoroutine(result):
+                await result
+    return "".join(parts)
+
+
 async def _try_one_model(
     provider: str,
     model: str,
@@ -129,6 +176,8 @@ async def _try_one_model(
     max_tokens: int,
     temperature: float,
     deadline: float,
+    on_delta: DeltaHandler | None = None,
+    on_reset: ResetHandler | None = None,
 ) -> tuple[str | None, str]:
     """Attempt a single model. Returns (text, error) -- exactly one is set.
 
@@ -150,15 +199,27 @@ async def _try_one_model(
             return None, str(e)
 
         wait = None
+        streamed = False
+
+        def _note_delta(piece: str):
+            nonlocal streamed
+            streamed = True
+            return on_delta(piece) if on_delta else None
+
         try:
             BUDGET.spend(provider)
-            resp = await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            text = (resp.choices[0].message.content or "").strip()
+            if on_delta is not None:
+                text = (await _stream_completion(
+                    client, model, messages, max_tokens, temperature, _note_delta
+                )).strip()
+            else:
+                resp = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+                text = (resp.choices[0].message.content or "").strip()
             if text:
                 _degraded.discard((provider, model))  # it works again
                 return text, ""
@@ -185,6 +246,10 @@ async def _try_one_model(
         except Exception as e:  # malformed payloads and other provider oddities
             last_error = f"{type(e).__name__}: {e}"
 
+        # This attempt failed. Anything already streamed to the caller is now garbage.
+        if streamed:
+            await _fire(on_reset)
+
         attempt += 1
         if attempt < max_attempts:
             BUDGET.retries += 1
@@ -203,6 +268,8 @@ async def call_model(
     messages: list[dict],
     max_tokens: int,
     temperature: float = 0.7,
+    on_delta: DeltaHandler | None = None,
+    on_reset: ResetHandler | None = None,
 ) -> ModelReply:
     """Call one seat, walking its fallback chain. Never raises.
 
@@ -219,7 +286,8 @@ async def call_model(
             errors.append(f"{model}: skipped (seat deadline reached)")
             break
         text, error = await _try_one_model(
-            provider, model, messages, max_tokens, temperature, deadline
+            provider, model, messages, max_tokens, temperature, deadline,
+            on_delta, on_reset,
         )
         if text is not None:
             return ModelReply(
