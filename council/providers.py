@@ -84,10 +84,14 @@ class ModelReply:
 #   ratelimit - we are going too fast (429). A sibling model shares the same quota, so
 #               switching is pointless. Wait, honouring Retry-After if the server sent one.
 #   transient - a hiccup. Retry with normal backoff.
-FATAL_FOR_MODEL = {400, 401, 402, 403, 404, 422}
+#   too large  - the prompt exceeds this model's request or context limit. Retrying is
+#               pointless and so is any sibling with a smaller window, but a model with a
+#               larger one may cope, so it is fatal for this model only.
+FATAL_FOR_MODEL = {400, 401, 402, 403, 404, 413, 422, 431}
 CAPACITY = {503, 529}
 RATE_LIMIT = {429}
 TRANSIENT = {408, 409, 500, 502, 504}
+TOO_LARGE = {413, 431}
 
 CAPACITY_ATTEMPTS = 2  # then move to the fallback rather than keep waiting
 
@@ -272,6 +276,8 @@ async def _try_one_model(
         except APIStatusError as e:
             status = e.status_code
             last_error = f"HTTP {status}"
+            if status in TOO_LARGE:
+                last_error += " (prompt too large for this model)"
             if status in FATAL_FOR_MODEL:
                 _degraded.add((provider, model))
                 return None, last_error

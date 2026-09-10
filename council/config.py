@@ -117,6 +117,13 @@ CHAIRMAN = Seat("chairman", "Chairman (GPT-OSS 120B)", "groq", "openai/gpt-oss-1
 OPINION_MAX_TOKENS = 2000
 REVIEW_MAX_TOKENS = 1600
 CHAIRMAN_MAX_TOKENS = 3000
+# The review and chairman prompts quote every council answer back. Four answers at
+# OPINION_MAX_TOKENS each, plus conversation history, grew the chairman's request past
+# Groq's size limit on the second turn of a conversation and got an HTTP 413. Quoting a
+# bounded slice of each answer keeps the prompt flat no matter how long the conversation
+# or how verbose the models get.
+MAX_RESPONSE_CHARS = 4500
+
 REQUEST_TIMEOUT = 120.0
 MAX_RETRIES = 3
 # Hard ceiling on how long one seat may spend across all its retries and fallbacks.

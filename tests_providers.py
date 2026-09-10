@@ -67,6 +67,12 @@ for a_name, a in buckets.items():
             check(f"{a_name} and {b_name} must not overlap", a & b, set())
 
 check("404 is fatal, not retryable", 404 in providers.FATAL_FOR_MODEL, True)
+# Regression: 413 was in no bucket at all, so an oversized chairman prompt fell through
+# the classifier and produced a bare, unexplained failure.
+check("413 is classified as fatal for the model", 413 in providers.FATAL_FOR_MODEL, True)
+check("413 is recognised as a size problem", 413 in providers.TOO_LARGE, True)
+check("every too-large code is also fatal",
+      providers.TOO_LARGE - providers.FATAL_FOR_MODEL, set())
 check("503 is capacity, so we switch models", 503 in providers.CAPACITY, True)
 check("429 is rate limit, so we wait", 429 in providers.RATE_LIMIT, True)
 check("429 is not treated as capacity", 429 in providers.CAPACITY, False)

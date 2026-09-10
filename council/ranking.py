@@ -7,6 +7,8 @@ import re
 import string
 from dataclasses import dataclass
 
+from .config import MAX_RESPONSE_CHARS
+
 
 @dataclass
 class Anonymised:
@@ -16,6 +18,13 @@ class Anonymised:
 
     def seat(self, label: str) -> str:
         return self.label_to_seat[label]
+
+
+def _clip(text: str) -> str:
+    """Bound one answer's contribution to a prompt. See MAX_RESPONSE_CHARS."""
+    if len(text) <= MAX_RESPONSE_CHARS:
+        return text
+    return text[:MAX_RESPONSE_CHARS].rstrip() + "\n[... truncated for length ...]"
 
 
 def anonymise(replies: list[tuple[str, str]], rng: random.Random | None = None) -> Anonymised:
@@ -32,7 +41,7 @@ def anonymise(replies: list[tuple[str, str]], rng: random.Random | None = None) 
     label_to_seat = {label: seat_id for label, (seat_id, _) in zip(labels, shuffled)}
 
     blocks = "\n\n".join(
-        f"<response id=\"{label}\">\n{text}\n</response>"
+        f"<response id=\"{label}\">\n{_clip(text)}\n</response>"
         for label, (_, text) in zip(labels, shuffled)
     )
     return Anonymised(labels, label_to_seat, blocks)

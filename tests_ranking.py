@@ -68,6 +68,20 @@ orders = {tuple(anonymise(replies, rng=random.Random(s)).label_to_seat.values())
           for s in range(20)}
 check("shuffle varies", len(orders) > 1, True)
 
+# --- prompt size is bounded -------------------------------------------------
+# Regression: the chairman prompt quotes every answer back, so four long answers plus
+# conversation history pushed the request past Groq's size limit and returned HTTP 413.
+from council.config import MAX_RESPONSE_CHARS  # noqa: E402
+
+huge = [(f"seat{i}", "y" * 20000) for i in range(4)]
+blocks = anonymise(huge, rng=random.Random(1)).blocks
+check("blocks stay bounded however long the answers are",
+      len(blocks) < 4 * (MAX_RESPONSE_CHARS + 200), True)
+check("truncation is visible to the reviewer", "truncated" in blocks, True)
+
+short_blocks = anonymise([("a", "tiny"), ("b", "also tiny")]).blocks
+check("short answers are quoted whole", "truncated" in short_blocks, False)
+
 if failures:
     print(f"{len(failures)} FAILED\n")
     print("\n".join(failures))
