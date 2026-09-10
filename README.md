@@ -92,8 +92,12 @@ python tests_providers.py    # retry policy, fallback ordering, Retry-After
 ## Web API (Phase 2)
 
 ```bash
-uvicorn server:app --reload      # then http://127.0.0.1:8000/docs
+uvicorn server:app --reload
 ```
+
+Then open <http://127.0.0.1:8000> for the web client, or `/docs` for the API explorer.
+The client is one static page with no build step: seat cards stream token by token,
+stage pills advance, and the ranking table and verdict fill in live.
 
 | Endpoint | What it does |
 |---|---|
