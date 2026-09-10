@@ -16,10 +16,15 @@ Stage 3  ->  the Chairman reads everything and delivers the verdict
 | Seat | Provider | Model |
 |---|---|---|
 | 1 | OpenRouter | `nvidia/nemotron-3-super-120b-a12b:free` |
-| 2 | Groq | `llama-3.3-70b-versatile` |
-| 3 | Groq | `openai/gpt-oss-120b` |
-| 4 | Google AI Studio | `gemini-2.5-flash` |
-| Chairman | Google AI Studio | `gemini-2.5-flash` |
+| 2 | Groq | `openai/gpt-oss-120b` |
+| 3 | Groq | `qwen/qwen3.8-27b` |
+| 4 | Google AI Studio | `gemini-3.8-flash` |
+| Chairman | Groq | `openai/gpt-oss-120b` |
+
+Every seat has a fallback chain that can cross providers, so an overloaded provider
+degrades the council instead of breaking it. Run `python check_keys.py` to see what your
+own account can actually reach -- model rosters change, and a model can be listed in a
+provider's `/models` yet still be refused for your account.
 
 Four different model lineages on purpose — a council of four near-identical models just
 agrees with itself. Edit `council/config.py` to swap a seat; it's one line.
