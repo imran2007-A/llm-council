@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
 
-from council import storage
+from council import storage, usage
 from council.config import CHAIRMAN, PROVIDERS, SEATS, seat_by_id
 from council.council import run_council
 
@@ -128,6 +128,19 @@ def print_verdict(transcript: dict) -> None:
                             border_style="red"))
 
 
+def print_usage() -> None:
+    """Today's spend against each provider's documented daily cap."""
+    table = Table(title="Requests today")
+    table.add_column("Provider"); table.add_column("Used", justify="right")
+    table.add_column("Limit", justify="right"); table.add_column("Left", justify="right")
+    for row in usage.report():
+        # Colour by how close this provider is to its ceiling.
+        style = "red" if row["fraction"] > 0.9 else "yellow" if row["fraction"] > 0.6 else "green"
+        table.add_row(row["provider"], str(row["used"]), str(row["limit"]),
+                      f"[{style}]{row['remaining']}[/{style}]")
+    console.print(table)
+
+
 def print_budget(transcript: dict) -> None:
     budget = transcript.get("budget")
     if not budget:
@@ -164,7 +177,31 @@ def main() -> int:
     parser.add_argument("--replay", metavar="RUN_ID",
                         help="re-print a saved transcript instead of running")
     parser.add_argument("--list", action="store_true", help="list saved runs")
+    parser.add_argument("-c", "--conversation", metavar="ID",
+                        help="continue a conversation, so the council remembers earlier turns")
+    parser.add_argument("--new", action="store_true",
+                        help="start a new conversation and print its id")
+    parser.add_argument("--conversations", action="store_true",
+                        help="list conversations")
+    parser.add_argument("--usage", action="store_true",
+                        help="show today's request usage against each free-tier limit")
     args = parser.parse_args()
+
+    if args.conversations:
+        rows = storage.list_conversations()
+        if not rows:
+            console.print("[dim]no conversations yet[/dim]")
+            return 0
+        table = Table(title="Conversations")
+        table.add_column("id"); table.add_column("turns", justify="right"); table.add_column("title")
+        for row in rows:
+            table.add_row(row["id"], str(row["turns"]), row["title"])
+        console.print(table)
+        return 0
+
+    if args.usage:
+        print_usage()
+        return 0
 
     if args.list:
         runs = storage.list_runs()
@@ -188,11 +225,21 @@ def main() -> int:
 
     seats = SEATS[: max(1, min(args.seats, len(SEATS)))]
 
+    # --new starts a fresh conversation; -c continues one; neither means a one-off run
+    # that is never recorded as a conversation.
+    conversation_id = args.conversation
+    if args.new and not conversation_id:
+        conversation_id = storage.new_conversation_id()
+
     console.print(Panel(question, title="Question", border_style="white"))
     console.print(
         f"[dim]Council: {', '.join(s.label for s in seats)} "
         f"| Chairman: {CHAIRMAN.label}{' | DRY RUN' if args.dry_run else ''}[/dim]"
     )
+
+    if conversation_id:
+        prior = len(storage.load_conversation(conversation_id).get("turns", []))
+        console.print(f"[dim]Conversation {conversation_id}, turn {prior + 1}[/dim]")
 
     transcript = asyncio.run(
         run_council(
@@ -200,6 +247,7 @@ def main() -> int:
             seats=seats,
             use_cache=args.cache,
             dry_run=args.dry_run,
+            conversation_id=conversation_id,
             on_event=make_handler(verbose=True),
         )
     )
@@ -210,6 +258,10 @@ def main() -> int:
         return 1
 
     render(transcript)
+    if conversation_id:
+        console.print(
+            f'[dim]Follow up with:  python cli.py -c {conversation_id} "your next question"[/dim]'
+        )
     return 0
 
 

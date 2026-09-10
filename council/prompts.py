@@ -1,5 +1,31 @@
 """The three stage prompts. Kept in one file so they're easy to iterate on."""
 
+# How much earlier conversation to carry forward.
+#
+# The council's shared memory is its *verdicts*, not every member's opinion. Replaying all
+# four opinions per turn would multiply context cost by four and mostly repeat itself; the
+# verdict is what the council actually concluded.
+HISTORY_TURNS = 4
+HISTORY_CHARS = 1200
+
+
+def history_block(history) -> str:
+    """Prior turns as context, or "" when this is the first question."""
+    if not history:
+        return ""
+    lines = ["<earlier_in_this_conversation>"]
+    for turn in list(history)[-HISTORY_TURNS:]:
+        verdict = (turn.get("verdict") or "").strip()
+        if len(verdict) > HISTORY_CHARS:
+            verdict = verdict[:HISTORY_CHARS].rstrip() + " [...]"
+        lines.append("")
+        lines.append(f"Q: {turn.get('question', '').strip()}")
+        lines.append(f"The council concluded: {verdict}")
+    lines.append("</earlier_in_this_conversation>")
+    lines.append("")
+    return "\n".join(lines)
+
+
 OPINION_SYSTEM = (
     "You are a member of an expert council convened to answer a difficult question. "
     "Give your own best answer, independently. Be substantive and specific rather than "
@@ -8,10 +34,11 @@ OPINION_SYSTEM = (
 )
 
 
-def opinion_messages(question: str) -> list[dict]:
+def opinion_messages(question: str, history=()) -> list[dict]:
+    context = history_block(history)
     return [
         {"role": "system", "content": OPINION_SYSTEM},
-        {"role": "user", "content": question},
+        {"role": "user", "content": f"{context}{question}" if context else question},
     ]
 
 
@@ -21,7 +48,7 @@ REVIEW_SYSTEM = (
     "Judge only on accuracy, insight, and usefulness to the person who asked."
 )
 
-REVIEW_TEMPLATE = """The council was asked:
+REVIEW_TEMPLATE = """{context}The council was asked:
 
 <question>
 {question}
@@ -45,14 +72,15 @@ off by a token limit -- rank what is there, and do not penalise it for being inc
 """
 
 
-def review_messages(question: str, blocks: str, labels: list[str]) -> list[dict]:
+def review_messages(question: str, blocks: str, labels: list[str], history=()) -> list[dict]:
     example = " > ".join(labels)
     return [
         {"role": "system", "content": REVIEW_SYSTEM},
         {
             "role": "user",
             "content": REVIEW_TEMPLATE.format(
-                question=question, blocks=blocks, n=len(labels), example=example
+                context=history_block(history), question=question, blocks=blocks,
+                n=len(labels), example=example,
             ),
         },
     ]
@@ -69,7 +97,7 @@ CHAIRMAN_SYSTEM = (
     "and do not describe the council's process."
 )
 
-CHAIRMAN_TEMPLATE = """The council was asked:
+CHAIRMAN_TEMPLATE = """{context}The council was asked:
 
 <question>
 {question}
@@ -86,13 +114,14 @@ Aggregate peer ranking (best first, by Borda count across all reviewers):
 Write the final verdict."""
 
 
-def chairman_messages(question: str, blocks: str, ranking: str) -> list[dict]:
+def chairman_messages(question: str, blocks: str, ranking: str, history=()) -> list[dict]:
     return [
         {"role": "system", "content": CHAIRMAN_SYSTEM},
         {
             "role": "user",
             "content": CHAIRMAN_TEMPLATE.format(
-                question=question, blocks=blocks, ranking=ranking
+                context=history_block(history), question=question, blocks=blocks,
+                ranking=ranking,
             ),
         },
     ]

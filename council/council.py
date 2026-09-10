@@ -13,7 +13,7 @@ import random
 import time
 from typing import Awaitable, Callable
 
-from . import prompts, storage
+from . import prompts, storage, usage
 from .config import (
     CHAIRMAN,
     CHAIRMAN_MAX_TOKENS,
@@ -66,7 +66,8 @@ def _delta_hooks(on_event, seat_id: str, stage: str):
 
 
 async def _opinion(
-    seat: Seat, question: str, use_cache: bool, dry_run: bool, on_event, stream: bool
+    seat: Seat, question: str, use_cache: bool, dry_run: bool, on_event, stream: bool,
+    history=(),
 ) -> ModelReply:
     await _emit(on_event, "seat_started", seat=seat.id, stage="opinions")
 
@@ -81,7 +82,7 @@ async def _opinion(
         else:
             on_delta, on_reset = _delta_hooks(on_event, seat.id, "opinions") if stream else (None, None)
             reply = await call_model(
-                seat, prompts.opinion_messages(question), OPINION_MAX_TOKENS,
+                seat, prompts.opinion_messages(question, history), OPINION_MAX_TOKENS,
                 on_delta=on_delta, on_reset=on_reset,
             )
             if use_cache and reply.ok:
@@ -95,7 +96,7 @@ async def _opinion(
 
 
 async def _review(
-    seat: Seat, question: str, anon, dry_run: bool, on_event, stream: bool
+    seat: Seat, question: str, anon, dry_run: bool, on_event, stream: bool, history=()
 ) -> ModelReply:
     await _emit(on_event, "seat_started", seat=seat.id, stage="review")
 
@@ -108,7 +109,7 @@ async def _review(
         on_delta, on_reset = _delta_hooks(on_event, seat.id, "review") if stream else (None, None)
         reply = await call_model(
             seat,
-            prompts.review_messages(question, anon.blocks, anon.labels),
+            prompts.review_messages(question, anon.blocks, anon.labels, history),
             REVIEW_MAX_TOKENS,
             temperature=0.3,  # judging wants less creativity than answering
             on_delta=on_delta, on_reset=on_reset,
@@ -127,16 +128,25 @@ async def run_council(
     chairman: Seat = CHAIRMAN,
     use_cache: bool = False,
     dry_run: bool = False,
+    conversation_id: str | None = None,
     on_event: EventHandler | None = None,
     stream: bool = False,
 ) -> dict:
     seats = seats or SEATS
     run_id = time.strftime("%Y%m%d-%H%M%S")
+
+    # Earlier turns in this conversation, if any. Only the questions and the Chairman's
+    # verdicts carry forward -- see prompts.history_block for why.
+    history = []
+    if conversation_id:
+        history = storage.load_conversation(conversation_id).get("turns", [])
     started = time.time()
     transcript: dict = {
         "run_id": run_id,
         "question": question,
         "dry_run": dry_run,
+        "conversation_id": conversation_id,
+        "turn": len(history) + 1,
         "seats": [
             {"id": s.id, "label": s.label, "provider": s.provider, "model": s.model}
             for s in seats
@@ -147,7 +157,7 @@ async def run_council(
     # ---- Stage 1: independent first opinions, all at once -------------------
     await _emit(on_event, "stage_changed", stage="opinions")
     results = await asyncio.gather(
-        *(_opinion(s, question, use_cache, dry_run, on_event, stream) for s in seats),
+        *(_opinion(s, question, use_cache, dry_run, on_event, stream, history) for s in seats),
         return_exceptions=True,
     )
     # return_exceptions=True means one seat blowing up in an unexpected way still
@@ -187,7 +197,7 @@ async def run_council(
         await _emit(on_event, "stage_changed", stage="review")
         reviewer_seats = [s for s in seats if any(r.seat_id == s.id for r in answered)]
         review_results = await asyncio.gather(
-            *(_review(s, question, anon, dry_run, on_event, stream) for s in reviewer_seats),
+            *(_review(s, question, anon, dry_run, on_event, stream, history) for s in reviewer_seats),
             return_exceptions=True,
         )
 
@@ -235,7 +245,7 @@ async def run_council(
         on_delta, on_reset = _delta_hooks(on_event, chairman.id, "chairman") if stream else (None, None)
         verdict = await call_model(
             chairman,
-            prompts.chairman_messages(question, anon.blocks, ranking_text),
+            prompts.chairman_messages(question, anon.blocks, ranking_text, history),
             CHAIRMAN_MAX_TOKENS,
             temperature=0.4,
             on_delta=on_delta, on_reset=on_reset,
@@ -249,10 +259,16 @@ async def run_council(
 
     transcript["verdict"] = {"ok": verdict.ok, "text": verdict.text, "error": verdict.error}
     transcript["elapsed"] = round(time.time() - started, 2)
+    usage.flush()
     transcript["budget"] = {
-        "calls": dict(BUDGET.calls), "retries": BUDGET.retries, "total": BUDGET.total()
+        "calls": dict(BUDGET.calls), "retries": BUDGET.retries, "total": BUDGET.total(),
+        "today": usage.report(),
     }
 
-    await _emit(on_event, "run_finished", ok=verdict.ok)
+    if conversation_id and verdict.ok:
+        storage.append_turn(conversation_id, question, verdict.text, run_id)
+
+    await _emit(on_event, "run_finished", ok=verdict.ok,
+                conversation_id=conversation_id)
     transcript["path"] = str(storage.save_transcript(transcript))
     return transcript

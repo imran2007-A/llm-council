@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import os
 import random
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, APIStatusError, APITimeoutError, APIConnectionError
 
+from . import usage
 from .config import MAX_RETRIES, PROVIDERS, REQUEST_TIMEOUT, SEAT_DEADLINE, Seat
 
 load_dotenv()
@@ -30,6 +32,7 @@ class Budget:
 
     def spend(self, provider: str) -> None:
         self.calls[provider] = self.calls.get(provider, 0) + 1
+        usage.record(provider)  # persisted daily total, survives process restarts
 
     def total(self) -> int:
         return sum(self.calls.values())
@@ -123,6 +126,45 @@ def _retry_after(exc: APIStatusError) -> float | None:
         return None  # HTTP-date form; not worth parsing for our purposes
 
 
+class Throttle:
+    """Per-provider admission control: bounded concurrency plus a minimum start interval.
+
+    Free tiers are usually capped on tokens per minute rather than requests per minute, so
+    the damage comes from several large streams overlapping. Letting a provider run one or
+    two calls at a time turns a 429 that costs a whole council seat into a few seconds of
+    waiting. Seats on *different* providers still run fully in parallel.
+    """
+
+    def __init__(self) -> None:
+        self._gates: dict[str, tuple[asyncio.Semaphore, asyncio.Lock]] = {}
+        self._last_start: dict[str, float] = {}
+
+    def _gate(self, provider: str) -> tuple[asyncio.Semaphore, asyncio.Lock]:
+        # Built lazily: asyncio primitives must be created inside a running loop.
+        if provider not in self._gates:
+            limit = max(1, PROVIDERS[provider].max_concurrent)
+            self._gates[provider] = (asyncio.Semaphore(limit), asyncio.Lock())
+        return self._gates[provider]
+
+    @asynccontextmanager
+    async def slot(self, provider: str):
+        semaphore, lock = self._gate(provider)
+        async with semaphore:
+            interval = PROVIDERS[provider].min_interval
+            if interval > 0:
+                # The lock makes the spacing check atomic, so two waiters released at the
+                # same moment cannot both decide it is their turn.
+                async with lock:
+                    loop = asyncio.get_event_loop()
+                    gap = loop.time() - self._last_start.get(provider, -1e9)
+                    if gap < interval:
+                        await asyncio.sleep(interval - gap)
+                    self._last_start[provider] = loop.time()
+            yield
+
+
+THROTTLE = Throttle()
+
 DeltaHandler = Callable[[str], Awaitable[None] | None]
 ResetHandler = Callable[[], Awaitable[None] | None]
 
@@ -207,19 +249,20 @@ async def _try_one_model(
             return on_delta(piece) if on_delta else None
 
         try:
-            BUDGET.spend(provider)
-            if on_delta is not None:
-                text = (await _stream_completion(
-                    client, model, messages, max_tokens, temperature, _note_delta
-                )).strip()
-            else:
-                resp = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-                text = (resp.choices[0].message.content or "").strip()
+            async with THROTTLE.slot(provider):
+                BUDGET.spend(provider)
+                if on_delta is not None:
+                    text = (await _stream_completion(
+                        client, model, messages, max_tokens, temperature, _note_delta
+                    )).strip()
+                else:
+                    resp = await client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                    )
+                    text = (resp.choices[0].message.content or "").strip()
             if text:
                 _degraded.discard((provider, model))  # it works again
                 return text, ""

@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from council import storage
+from council import storage, usage
 from council.config import CHAIRMAN, PROVIDERS, SEATS
 from council.council import run_council
 from council.providers import BUDGET
@@ -51,6 +51,8 @@ class Run:
         self.subscribers: set[asyncio.Queue] = set()
         self.finished = asyncio.Event()
         self.transcript: dict | None = None
+        self.conversation_id: str | None = None
+        self.task: asyncio.Task | None = None
 
     def publish(self, event: dict) -> None:
         self.events.append(event)
@@ -86,6 +88,9 @@ class AskRequest(BaseModel):
     cache: bool = False
     dry_run: bool = False
     seats: int | None = Field(default=None, ge=1, le=len(SEATS))
+    # Omit to start a fresh conversation; pass an id to continue one, and the council
+    # gets the earlier questions and verdicts as context.
+    conversation_id: str | None = None
 
 
 @app.get("/api/config")
@@ -114,7 +119,9 @@ async def start_council(req: AskRequest) -> dict:
     while run_id in RUNS:  # two runs inside the same second
         run_id += "b"
 
+    conversation_id = req.conversation_id or storage.new_conversation_id()
     run = Run(run_id, req.question)
+    run.conversation_id = conversation_id
     RUNS[run_id] = run
     seats = SEATS[: req.seats] if req.seats else SEATS
 
@@ -125,6 +132,7 @@ async def start_council(req: AskRequest) -> dict:
                 seats=seats,
                 use_cache=req.cache,
                 dry_run=req.dry_run,
+                conversation_id=conversation_id,
                 on_event=run.publish,
                 stream=True,
             )
@@ -137,8 +145,9 @@ async def start_council(req: AskRequest) -> dict:
             for queue in list(run.subscribers):
                 queue.put_nowait({"type": "stream_end", "t": time.time()})
 
-    asyncio.create_task(execute())
-    return {"run_id": run_id}
+    # Held so the task is not garbage collected mid-run.
+    run.task = asyncio.create_task(execute())
+    return {"run_id": run_id, "conversation_id": conversation_id}
 
 
 @app.get("/api/council/{run_id}/stream")
@@ -184,6 +193,25 @@ def get_run(run_id: str) -> dict:
 @app.get("/api/runs")
 def list_runs() -> dict:
     return {"runs": storage.list_runs()}
+
+
+@app.get("/api/conversations")
+def list_conversations() -> dict:
+    return {"conversations": storage.list_conversations()}
+
+
+@app.get("/api/conversations/{conversation_id}")
+def get_conversation(conversation_id: str) -> dict:
+    conversation = storage.load_conversation(conversation_id)
+    if not conversation.get("turns"):
+        raise HTTPException(404, f"No conversation {conversation_id}")
+    return conversation
+
+
+@app.get("/api/usage")
+def get_usage() -> dict:
+    """Today's request spend per provider, plus recent history for a chart."""
+    return {"today": usage.report(), "history": usage.history()}
 
 
 # Served last so it never shadows an /api route.

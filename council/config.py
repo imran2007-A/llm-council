@@ -15,6 +15,16 @@ class Provider:
     # Free-tier ceilings, for the budget report at the end of a run.
     rpm: int
     rpd: int
+    # How many calls we let run against this provider at once.
+    #
+    # The binding limit on a free tier is usually tokens per minute, not requests. Two
+    # seats on Groq each streaming a 2000-token answer at the same moment blew its TPM
+    # cap and got one seat 429'd out of the council entirely. Serialising a provider's
+    # calls costs a few seconds and buys back a whole council member.
+    max_concurrent: int = 4
+    # Minimum gap between starting two calls on this provider, to stay under the RPM cap
+    # and to stop a burst arriving as one spike.
+    min_interval: float = 0.0
 
 
 PROVIDERS = {
@@ -24,6 +34,8 @@ PROVIDERS = {
         env_key="OPENROUTER_API_KEY",
         rpm=20,
         rpd=50,  # 1000 once $10 of credit has ever been purchased
+        max_concurrent=2,
+        min_interval=3.0,  # 20/min
     ),
     "groq": Provider(
         name="groq",
@@ -31,6 +43,8 @@ PROVIDERS = {
         env_key="GROQ_API_KEY",
         rpm=30,
         rpd=1000,
+        max_concurrent=1,  # TPM is the real cap here; one at a time keeps seats alive
+        min_interval=2.0,
     ),
     "google": Provider(
         name="google",
@@ -38,6 +52,8 @@ PROVIDERS = {
         env_key="GOOGLE_API_KEY",
         rpm=15,
         rpd=1500,
+        max_concurrent=2,
+        min_interval=4.0,  # 15/min
     ),
 }
 
