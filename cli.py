@@ -23,6 +23,15 @@ from council import storage
 from council.config import CHAIRMAN, PROVIDERS, SEATS, seat_by_id
 from council.council import run_council
 
+# Windows consoles default to cp1252, which cannot encode characters these models emit
+# routinely (non-breaking hyphens, em dashes, arrows). Without this, a run that succeeded
+# in full still dies while printing. errors="replace" is the belt to this braces.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 console = Console()
 
 STAGE_TITLES = {

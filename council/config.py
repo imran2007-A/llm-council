@@ -80,10 +80,14 @@ SEATS = [
 CHAIRMAN = Seat("chairman", "Chairman (Gemini 3.8 Flash)", "google", "gemini-3.8-flash",
                 fallbacks=GEMINI_FALLBACKS)
 
-# Generation settings
-OPINION_MAX_TOKENS = 900
-REVIEW_MAX_TOKENS = 700
-CHAIRMAN_MAX_TOKENS = 1200
+# Generation settings.
+# These were originally 900/700/1200 and every stage was visibly truncating: reviewers
+# complained the answers "cut off mid-sentence", and one reviewer's ranking line was
+# clipped off entirely. Free models are free -- output tokens are the wrong thing to
+# economise on. The daily request count is the real budget, not tokens per request.
+OPINION_MAX_TOKENS = 2000
+REVIEW_MAX_TOKENS = 1600
+CHAIRMAN_MAX_TOKENS = 3000
 REQUEST_TIMEOUT = 120.0
 MAX_RETRIES = 3
 

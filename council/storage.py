@@ -52,6 +52,7 @@ def save_transcript(transcript: dict) -> Path:
     _ensure()
     run_id = transcript.get("run_id") or time.strftime("%Y%m%d-%H%M%S")
     path = RUNS / f"{run_id}.json"
+    transcript["path"] = str(path)  # recorded before writing, so replays can show it
     path.write_text(json.dumps(transcript, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
 

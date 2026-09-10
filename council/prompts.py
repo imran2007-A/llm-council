@@ -31,15 +31,17 @@ Here are the anonymous responses:
 
 {blocks}
 
-Do two things.
+Reply in exactly this order.
 
-1. Write a short critique of each response (2-3 sentences each). Name concrete strengths and
-   concrete errors or omissions. Do not be diplomatic at the expense of being useful.
-2. Rank all {n} responses from best to worst.
-
-End your reply with your ranking on its own line, in exactly this format and nothing after it:
+First line, and nothing before it -- your ranking of all {n} responses, best to worst:
 
 RANKING: {example}
+
+Then a short critique of each response, 2-3 sentences each. Name concrete strengths and
+concrete errors or omissions. Do not be diplomatic at the expense of being useful.
+
+Judge the substance, not the length. If a response appears to stop mid-sentence it was cut
+off by a token limit -- rank what is there, and do not penalise it for being incomplete.
 """
 
 
