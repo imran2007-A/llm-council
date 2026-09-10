@@ -7,3 +7,4 @@ data/runs/
 data/cache/
 node_modules/
 dist/
+static_web/

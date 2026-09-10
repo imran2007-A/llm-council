@@ -11,13 +11,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
+from pathlib import Path
 from contextlib import suppress
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from council import storage, usage
@@ -28,9 +30,14 @@ from council.providers import BUDGET
 app = FastAPI(title="LLM Council", version="2.0")
 
 # The Vite dev server runs on a different port, so the browser treats it as cross-origin.
+# In production the React build is served by this same app, so no origins are needed --
+# set CORS_ORIGINS (comma separated) only if you host the frontend somewhere else.
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", _default_origins).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -214,5 +221,29 @@ def get_usage() -> dict:
     return {"today": usage.report(), "history": usage.history()}
 
 
-# Served last so it never shadows an /api route.
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+# Static mounts go last so they never shadow an /api route.
+#
+# Two clients exist on purpose: the built React app when it has been compiled, and the
+# dependency-free single page as a fallback that always works without a Node toolchain.
+ROOT = Path(__file__).resolve().parent
+REACT_BUILD = ROOT / "static_web"
+SIMPLE_CLIENT = ROOT / "static"
+
+# Without this, a bare /simple falls through to the root mount below and 404s, because
+# the root mount matches "/simple" as a missing file inside its own directory.
+@app.get("/simple", include_in_schema=False)
+def simple_client_redirect() -> RedirectResponse:
+    return RedirectResponse("/simple/")
+
+
+# The simple client keeps its own prefix so both stay reachable.
+app.mount("/simple", StaticFiles(directory=SIMPLE_CLIENT, html=True), name="simple")
+
+# Vite emits absolute /assets/... URLs, so the React build has to own the root for those
+# to resolve. Until `npm run build` has been run, the root serves the simple client
+# instead -- the API is fully usable with no Node toolchain installed.
+app.mount(
+    "/",
+    StaticFiles(directory=REACT_BUILD if REACT_BUILD.is_dir() else SIMPLE_CLIENT, html=True),
+    name="root",
+)

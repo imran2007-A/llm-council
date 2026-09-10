@@ -1,0 +1,10 @@
+/* Minimal reset only. The visual design is not decided yet -- this file is where a
+   real design system would go, and nothing else depends on what is in here. */
+:root {
+  color-scheme: dark;
+  background: #0f1115;
+  color: #e6e8ee;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+canvas { display: block; }
