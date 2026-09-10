@@ -136,7 +136,7 @@ async def run_council(
 
     transcript["opinions"] = [
         {"seat": r.seat_id, "ok": r.ok, "text": r.text, "error": r.error,
-         "elapsed": round(r.elapsed, 2)}
+         "model_used": r.model_used, "elapsed": round(r.elapsed, 2)}
         for r in opinions
     ]
 
