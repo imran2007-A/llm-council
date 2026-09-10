@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Council</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36; --text: #e6e8ee;
+    --dim: #8b93a7; --accent: #7aa2f7; --ok: #7bd88f; --bad: #f7768e; --warn: #e0af68;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, sans-serif;
+  }
+  header { padding: 22px 24px 0; max-width: 1200px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.01em; }
+  .sub { color: var(--dim); font-size: 13px; margin-bottom: 18px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; }
+  form { display: flex; gap: 10px; margin-bottom: 8px; }
+  input[type=text] {
+    flex: 1; padding: 11px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); font-size: 15px;
+  }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  button {
+    padding: 11px 18px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--accent); color: #0b0d12; font-weight: 600; cursor: pointer; font-size: 15px;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .opts { display: flex; gap: 16px; color: var(--dim); font-size: 13px; margin-bottom: 20px; }
+  .opts label { cursor: pointer; user-select: none; }
+
+  .stages { display: flex; gap: 8px; margin: 22px 0 14px; flex-wrap: wrap; }
+  .stage {
+    padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
+    color: var(--dim); font-size: 12.5px;
+  }
+  .stage.active { border-color: var(--accent); color: var(--accent); }
+  .stage.done { border-color: var(--ok); color: var(--ok); }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px; display: flex; flex-direction: column; min-height: 150px;
+  }
+  .card.speaking { border-color: var(--accent); }
+  .card.failed { border-color: var(--bad); }
+  .card h3 { margin: 0 0 2px; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+  .meta { color: var(--dim); font-size: 11.5px; margin-bottom: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; align-self: center; }
+  .card.speaking .dot { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .card.done .dot { background: var(--ok); }
+  .card.failed .dot { background: var(--bad); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
+  .body {
+    white-space: pre-wrap; word-break: break-word; font-size: 13.5px; color: #cfd4e0;
+    overflow-y: auto; max-height: 300px; flex: 1;
+  }
+  .err { color: var(--bad); font-size: 13px; }
+
+  h2 { font-size: 15px; margin: 30px 0 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .verdict {
+    background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--ok);
+    border-radius: 10px; padding: 18px; white-space: pre-wrap; word-break: break-word;
+  }
+  .hint { color: var(--dim); font-size: 12.5px; margin-top: 10px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LLM Council</h1>
+  <div class="sub">Four models answer independently, review each other anonymously, then a Chairman delivers the verdict.</div>
+</header>
+
+<main>
+  <form id="ask">
+    <input type="text" id="q" placeholder="Ask the council something hard&hellip;" autocomplete="off" required>
+    <button type="submit" id="go">Convene</button>
+  </form>
+  <div class="opts">
+    <label><input type="checkbox" id="dry"> Dry run (no API calls)</label>
+    <label><input type="checkbox" id="cache" checked> Reuse cached first opinions</label>
+  </div>
+
+  <div id="stages" class="stages hidden">
+    <span class="stage" data-stage="opinions">1 &middot; First opinions</span>
+    <span class="stage" data-stage="review">2 &middot; Peer review</span>
+    <span class="stage" data-stage="chairman">3 &middot; Verdict</span>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div id="rankWrap" class="hidden">
+    <h2>Aggregate peer ranking</h2>
+    <table><thead><tr><th>#</th><th>Model</th><th>Anon</th><th>Score</th></tr></thead>
+    <tbody id="rankBody"></tbody></table>
+    <div class="hint" id="rankHint"></div>
+  </div>
+
+  <div id="verdictWrap" class="hidden">
+    <h2>Final verdict</h2>
+    <div class="verdict" id="verdict"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let config = null, es = null;
+
+// Seat metadata drives the layout, so adding a seat in config.py just works here.
+async function loadConfig() {
+  config = await (await fetch("/api/config")).json();
+}
+
+function buildCards(activeSeats) {
+  $("grid").innerHTML = "";
+  const seats = [...activeSeats, config.chairman];
+  for (const seat of seats) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.id = "card-" + seat.id;
+    card.innerHTML = `
+      <h3><span>${seat.label}</span><span class="dot"></span></h3>
+      <div class="meta">${seat.provider} &middot; ${seat.model}</div>
+      <div class="body" id="body-${seat.id}"></div>`;
+    $("grid").appendChild(card);
+  }
+}
+
+function setStage(stage) {
+  const order = ["opinions", "review", "chairman"];
+  document.querySelectorAll(".stage").forEach(el => {
+    const i = order.indexOf(el.dataset.stage), j = order.indexOf(stage);
+    el.className = "stage" + (i === j ? " active" : i < j ? " done" : "");
+  });
+}
+
+// Each seat is a small state machine, exactly like the 3D avatars will be:
+// idle -> speaking -> done | failed.
+const handlers = {
+  stage_changed: (e) => setStage(e.stage),
+
+  seat_started: (e) => {
+    const card = $("card-" + e.seat);
+    if (card) { card.classList.remove("done", "failed"); card.classList.add("speaking"); }
+    // Stage 2 reuses the same cards, so clear the previous stage's text.
+    const body = $("body-" + e.seat);
+    if (body) body.textContent = "";
+  },
+
+  seat_token: (e) => {
+    const body = $("body-" + e.seat);
+    if (!body) return;
+    body.textContent += e.text;
+    body.scrollTop = body.scrollHeight;
+  },
+
+  // The attempt that produced this text failed; a retry or fallback is starting over.
+  seat_reset: (e) => {
+    const body = $("body-" + e.seat);
+    if (body) body.textContent = "";
+  },
+
+  cache_hit: (e) => {
+    const body = $("body-" + e.seat);
+    if (body) body.textContent = "(cached) ";
+  },
+
+  seat_finished: (e) => {
+    const card = $("card-" + e.seat), body = $("body-" + e.seat);
+    if (!card) return;
+    card.classList.remove("speaking");
+    card.classList.add(e.ok ? "done" : "failed");
+    if (!e.ok && body) body.innerHTML = `<span class="err">${e.error || "failed"}</span>`;
+    else if (body && e.text && !body.textContent.trim()) body.textContent = e.text;
+    if (e.seat === "chairman" && e.ok) {
+      $("verdictWrap").classList.remove("hidden");
+      $("verdict").textContent = e.text;
+    }
+  },
+
+  review_finished: (e) => {
+    const labels = Object.fromEntries(
+      [...config.seats, config.chairman].map(s => [s.id, s.label]));
+    $("rankWrap").classList.remove("hidden");
+    $("rankBody").innerHTML = e.ranking.map((r, i) =>
+      `<tr><td>${i + 1}</td><td>${labels[r.seat] || r.seat}</td>
+       <td>${r.label}</td><td>${r.score}</td></tr>`).join("");
+  },
+
+  run_finished: () => {
+    // Every stage is complete now. setStage() only knows the three real stage names,
+    // so mark them directly rather than passing a name it would fail to match.
+    document.querySelectorAll(".stage").forEach(el => el.className = "stage done");
+    $("go").disabled = false;
+    $("go").textContent = "Convene";
+  },
+};
+
+$("ask").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (es) es.close();
+
+  $("go").disabled = true;
+  $("go").textContent = "In session…";
+  $("rankWrap").classList.add("hidden");
+  $("verdictWrap").classList.add("hidden");
+  $("stages").classList.remove("hidden");
+  buildCards(config.seats);
+
+  const res = await fetch("/api/council", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: $("q").value,
+      dry_run: $("dry").checked,
+      cache: $("cache").checked,
+    }),
+  });
+  const { run_id } = await res.json();
+
+  es = new EventSource(`/api/council/${run_id}/stream`);
+  for (const [type, fn] of Object.entries(handlers)) {
+    es.addEventListener(type, (m) => fn(JSON.parse(m.data)));
+  }
+  es.addEventListener("done", () => { es.close(); es = null; });
+  es.onerror = () => {
+    // EventSource retries on its own; the run keeps going server-side either way.
+    $("go").disabled = false;
+    $("go").textContent = "Convene";
+  };
+});
+
+loadConfig();
+</script>
+</body>
+</html>

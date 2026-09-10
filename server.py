@@ -16,6 +16,7 @@ from contextlib import suppress
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -183,3 +184,7 @@ def get_run(run_id: str) -> dict:
 @app.get("/api/runs")
 def list_runs() -> dict:
     return {"runs": storage.list_runs()}
+
+
+# Served last so it never shadows an /api route.
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
