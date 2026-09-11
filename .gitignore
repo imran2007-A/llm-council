@@ -8,3 +8,6 @@ data/cache/
 node_modules/
 dist/
 static_web/
+
+# Brand source art (large originals; processed copies live in web/public/brand)
+brand-source/

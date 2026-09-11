@@ -150,7 +150,14 @@ function SeatPreview({
         onClick={onOpen}
         disabled={!state.text && !state.error}
       >
-        <span className="seat-preview__name">{label}</span>
+        <span className="seat-preview__name">
+          <span
+            className="seat-preview__emblem"
+            aria-hidden
+            style={{ "--mark": `url(/brand/emblem-${state.id}.png)` } as React.CSSProperties}
+          />
+          {label}
+        </span>
         <span className="seat-preview__body">
           {busy && !preview ? <span className="seat-preview__dots"><i /><i /><i /></span> : preview}
         </span>

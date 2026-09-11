@@ -117,6 +117,7 @@ export default function App() {
 
       {/* Title card, only during the opening */}
       <div className={`titlecard ${phase === "forming" && elapsed > formation.tableRise ? "is-open" : ""}`}>
+        <span className="titlecard__mark" aria-hidden />
         <h1>LLM Council</h1>
         <p>Four minds, one verdict</p>
       </div>

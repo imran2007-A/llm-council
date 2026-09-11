@@ -481,3 +481,49 @@ canvas { display: block; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ------------------------------------------------------------------ brand marks */
+
+/* The emblems are white artwork on transparency, so they can be tinted to any seat
+   colour. A CSS mask does the tinting: the image supplies the shape, the background
+   supplies the colour, and nothing needs re-exporting when a palette changes. */
+.seat-preview__emblem,
+.sheet__emblem {
+  display: inline-block;
+  background: var(--accent);
+  mask-image: var(--mark);
+  -webkit-mask-image: var(--mark);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+.seat-preview__name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.seat-preview__emblem { width: 13px; height: 13px; flex: none; }
+
+.sheet__emblem { width: 34px; height: 34px; flex: none; margin-top: 0.35rem; }
+
+/* Masked rather than filtered. A sepia/hue-rotate chain on white artwork lands on a
+   muddy brown; masking paints the exact brass from the palette. */
+.titlecard__mark {
+  display: block;
+  width: clamp(58px, 9vw, 94px);
+  aspect-ratio: 1;
+  margin: 0 auto 1.1rem;
+  background: linear-gradient(180deg, var(--brass-light), var(--brass));
+  mask-image: url(/brand/logo.png);
+  -webkit-mask-image: url(/brand/logo.png);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}

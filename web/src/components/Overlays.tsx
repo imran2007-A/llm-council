@@ -101,6 +101,11 @@ export function AnswerPanel({
         {seat && state && (
           <>
             <header className="sheet__head">
+              <span
+                className="sheet__emblem"
+                aria-hidden
+                style={{ "--mark": `url(/brand/emblem-${seat.id}.png)` } as React.CSSProperties}
+              />
               <div>
                 <h2>{seat.label}</h2>
                 <p className="sheet__meta">
