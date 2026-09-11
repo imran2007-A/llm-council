@@ -1,5 +1,6 @@
 import { useGLTF } from "@react-three/drei";
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
+import type { Mesh } from "three";
 import { hex, palette } from "../theme";
 
 /**
@@ -11,7 +12,7 @@ import { hex, palette } from "../theme";
  * migration, with no other file touched.
  */
 
-const CHAIR_URL = "/models/chair.glb";
+const CHAIR_URL = "/models/chair/ArmChair_01_1k.gltf";
 
 interface Props {
   /** 0 at the floor, 1 fully risen. Drives the formation sequence. */
@@ -81,7 +82,25 @@ function ProceduralChair({ accent, isChairman = false }: Props) {
 function LoadedChair({ accent }: Props) {
   const { scene } = useGLTF(CHAIR_URL);
   // Cloned so five chairs do not share one mutable object in the scene graph.
-  return <primitive object={scene.clone()} userData={{ accent }} />;
+  const model = useMemo(() => {
+    const copy = scene.clone(true);
+    copy.traverse((o) => {
+      const mesh = o as Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+    return copy;
+  }, [scene]);
+
+  return (
+    // Poly Haven ships this armchair facing +Y-forward at roughly real-world scale; it
+    // is turned to face the table and trimmed slightly so five fit round the circle.
+    <group rotation={[0, Math.PI, 0]} scale={0.92} userData={{ accent }}>
+      <primitive object={model} />
+    </group>
+  );
 }
 
 export function Chair(props: Props) {
@@ -103,4 +122,4 @@ export function Chair(props: Props) {
  * A build-time flag rather than a runtime fetch: probing for the file would mean a 404 in
  * the network log on every load, and a frame where the chair is missing.
  */
-export const HAS_CHAIR_MODEL = false;
+export const HAS_CHAIR_MODEL = true;

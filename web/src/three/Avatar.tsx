@@ -1,9 +1,17 @@
-import { useAnimations, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import type { Group } from "three";
+// Object3D.clone() copies meshes but leaves every SkinnedMesh bound to the ORIGINAL
+// skeleton. With five seats that put all five characters on one shared rig standing at
+// the world origin -- they rendered as a single figure in the middle of the table.
+// SkeletonUtils.clone rebuilds the bone hierarchy per instance, which is what makes five
+// independently posable characters possible.
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { animateSeated, applySeatedPose, findBones } from "./seated";
+import type { BoneSet } from "./seated";
 import { hex, palette } from "../theme";
-import type { SeatState, SeatStatus } from "../types";
+import type { SeatState } from "../types";
 
 /**
  * Whoever occupies a chair.
@@ -18,7 +26,7 @@ import type { SeatState, SeatStatus } from "../types";
 export type AvatarStyle = "gltf" | "figure" | "abstract";
 
 /** Switch the entire council's appearance here. */
-export const AVATAR_STYLE: AvatarStyle = "figure";
+export const AVATAR_STYLE: AvatarStyle = "gltf";
 
 /**
  * Drop Ready Player Me exports in web/public/models/ with these names, then set
@@ -30,15 +38,6 @@ export const AVATAR_URLS: Record<string, string> = {
   qwen: "/models/seat-qwen.glb",
   gemini: "/models/seat-gemini.glb",
   chairman: "/models/seat-chairman.glb",
-};
-
-/** Mixamo clip names, mapped onto the seat states the server already emits. */
-const CLIP_FOR_STATUS: Record<SeatStatus, string[]> = {
-  idle: ["Sitting Idle", "Idle", "SittingIdle"],
-  thinking: ["Thinking", "Sitting Thinking", "Idle"],
-  speaking: ["Seated Talking", "Talking", "Sitting Talking"],
-  done: ["Sitting Idle", "Idle"],
-  failed: ["Sitting Idle", "Idle"],
 };
 
 interface Props {
@@ -156,30 +155,43 @@ function AbstractForm({ state, accent, isChairman }: Props) {
 
 /* ----------------------------------------------------------------------- loaded model */
 
-function LoadedAvatar({ seatId, state }: Props) {
+function LoadedAvatar({ seatId, state, isChairman }: Props) {
   const url = AVATAR_URLS[seatId] ?? AVATAR_URLS.chairman;
   const group = useRef<Group>(null);
-  const { scene, animations } = useGLTF(url);
-  const cloned = useMemo(() => scene.clone(), [scene]);
-  const { actions } = useAnimations(animations, group);
+  const bones = useRef<BoneSet>({});
+  const { scene } = useGLTF(url);
 
-  useEffect(() => {
-    const wanted = CLIP_FOR_STATUS[state.status];
-    // Mixamo names clips inconsistently across downloads, so try each candidate and fall
-    // back to whatever the file actually contains rather than freezing on a missing name.
-    const name =
-      wanted.find((n) => actions[n]) ?? Object.keys(actions)[0];
-    const action = name ? actions[name] : null;
-    if (!action) return;
-    action.reset().fadeIn(0.35).play();
-    return () => {
-      action.fadeOut(0.35);
-    };
-  }, [actions, state.status]);
+  // Cloned per seat: five seats sharing one scene graph would share one pose, and posing
+  // the first would pose them all.
+  const model = useMemo(() => {
+    const copy = cloneSkinned(scene);
+    const found = findBones(copy);
+    applySeatedPose(copy, found);
+    bones.current = found;
+    copy.traverse((o) => {
+      const mesh = o as unknown as { isMesh?: boolean; castShadow?: boolean; frustumCulled?: boolean };
+      if (mesh.isMesh) {
+        mesh.castShadow = true;
+        // A posed skinned mesh keeps the bounding box of its rest pose, so seats at the
+        // edge of frame can vanish as the camera moves. Cheaper to always draw five.
+        mesh.frustumCulled = false;
+      }
+    });
+    return copy;
+  }, [scene]);
+
+  // A per-seat offset so five figures do not breathe and glance in perfect unison, which
+  // reads as a chorus line rather than a group of individuals.
+  const seed = useMemo(() => (seatId.charCodeAt(0) % 7) * 0.9, [seatId]);
+
+  useFrame(({ clock }) => {
+    const speaking = performance.now() - state.lastTokenAt < 500;
+    animateSeated(bones.current, clock.elapsedTime, state.status, speaking, seed);
+  });
 
   return (
-    <group ref={group}>
-      <primitive object={cloned} />
+    <group ref={group} scale={isChairman ? 1.06 : 1}>
+      <primitive object={model} />
     </group>
   );
 }
