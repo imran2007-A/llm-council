@@ -1,0 +1,82 @@
+/**
+ * Dark chamber, warm gold.
+ *
+ * One source of truth for both worlds: CSS custom properties drive the DOM, and the same
+ * numbers are exported as hex for three.js materials and lights. A colour defined twice
+ * is a colour that will drift apart.
+ */
+
+export const palette = {
+  // The room. Not pure black -- pure black kills the sense of depth, because there is
+  // nothing left for shadow to be darker than.
+  void: "#0a0806",
+  chamber: "#120e0a",
+  surface: "#1a1410",
+  raised: "#241c15",
+
+  // Walnut table, brass fittings.
+  walnut: "#3a2a1c",
+  walnutDark: "#241a11",
+  brass: "#b8893a",
+  brassLight: "#e8c07a",
+
+  // The warm key light every seat sits under.
+  amber: "#ffc470",
+  amberDim: "#a8763a",
+
+  ink: "#f2e9dc",
+  inkMuted: "#a99883",
+  inkFaint: "#6b5d4d",
+
+  good: "#8fbf7a",
+  bad: "#cf6b5a",
+  line: "#2e2419",
+} as const;
+
+/**
+ * One accent per seat, warm-biased so nothing fights the gold.
+ * Keyed by seat id from council/config.py.
+ */
+export const seatColors: Record<string, string> = {
+  nemotron: "#7db87d", // green
+  gptoss: "#6fa8c7", // steel blue
+  qwen: "#c77d9e", // rose
+  gemini: "#d9a441", // gold
+  chairman: "#e8c07a", // brass, brightest
+};
+
+export const seatColor = (id: string) => seatColors[id] ?? palette.brass;
+
+/** Numeric forms for three.js, which wants 0xRRGGBB rather than strings. */
+export const hex = (color: string) => parseInt(color.replace("#", ""), 16);
+
+export const font = {
+  display: "'Cormorant Garamond', Georgia, serif",
+  body: "'Inter', system-ui, sans-serif",
+  mono: "'JetBrains Mono', ui-monospace, monospace",
+};
+
+/**
+ * Motion.
+ *
+ * Durations in ms, easings as cubic-beziers. Kept together so the whole app can be
+ * slowed down or sped up by changing one file, and so nothing is animated with an
+ * arbitrary duration typed inline at 2am.
+ */
+export const motion = {
+  fast: 180,
+  normal: 320,
+  slow: 600,
+  // Decelerate hard: things arrive quickly then settle. Reads as weight.
+  out: "cubic-bezier(0.16, 1, 0.3, 1)",
+  inOut: "cubic-bezier(0.65, 0, 0.35, 1)",
+  // A little overshoot, for anything that should feel physical.
+  spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+};
+
+/** Injected once at startup so CSS and three.js cannot disagree about a colour. */
+export function cssVariables(): string {
+  const lines = Object.entries(palette).map(([k, v]) => `  --${k}: ${v};`);
+  const seats = Object.entries(seatColors).map(([k, v]) => `  --seat-${k}: ${v};`);
+  return `:root{\n${lines.join("\n")}\n${seats.join("\n")}\n  --font-display:${font.display};\n  --font-body:${font.body};\n  --ease-out:${motion.out};\n  --ease-spring:${motion.spring};\n}`;
+}
