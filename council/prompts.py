@@ -93,9 +93,31 @@ CHAIRMAN_SYSTEM = (
     "Synthesise, do not summarise. Take the strongest reasoning wherever it appears, including "
     "from a low-ranked response. Where the council genuinely disagrees, say so and give your own "
     "judgement on who is right and why. Where they agree on something that is wrong, say that too. "
-    "Write the answer the questioner actually needs. Do not refer to responses by their letters "
-    "and do not describe the council's process."
+    "Write the answer the questioner actually needs."
 )
+
+# The Chairman is already reading every answer and every ranking, so the comparison table,
+# the points of conflict and the follow-up questions all come out of the SAME request.
+# Asking a second model for them would cost another slot against a 50-a-day budget for
+# information this one already has in front of it.
+CHAIRMAN_SECTIONS = """
+
+After the verdict, and only after it, add these three sections using exactly these
+headings, each on its own line:
+
+===POSITIONS===
+One line per response, formatted `A: <that response's position in under 15 words>`.
+Cover every response you were given. State what it actually argued, not whether it was
+good. If two responses agree, say so in both lines rather than merging them.
+
+===DISAGREEMENT===
+The points on which the responses genuinely conflict, one per line, each under 20 words.
+Only real conflicts -- differing recommendations, incompatible claims, opposite advice.
+If they substantively agreed, write the single line: None.
+
+===FOLLOW-UPS===
+Three questions the person would sensibly ask next, one per line, no numbering. Each must
+be a complete question that stands on its own without this conversation for context."""
 
 CHAIRMAN_TEMPLATE = """{context}The council was asked:
 
@@ -116,7 +138,7 @@ Write the final verdict."""
 
 def chairman_messages(question: str, blocks: str, ranking: str, history=()) -> list[dict]:
     return [
-        {"role": "system", "content": CHAIRMAN_SYSTEM},
+        {"role": "system", "content": CHAIRMAN_SYSTEM + CHAIRMAN_SECTIONS},
         {
             "role": "user",
             "content": CHAIRMAN_TEMPLATE.format(
@@ -124,4 +146,42 @@ def chairman_messages(question: str, blocks: str, ranking: str, history=()) -> l
                 ranking=ranking,
             ),
         },
+    ]
+
+
+DISSENT_SYSTEM = (
+    "You are a member of an expert council. Your answer was ranked lowest by your peers, "
+    "who could not see whose answer was whose. You are being asked to defend it.\n\n"
+    "Do not capitulate and do not grovel. If you still believe you were right, say why, and "
+    "name what the others missed. If on reflection you were wrong, say precisely where and "
+    "what changed your mind -- that is a real answer too. Be specific and be brief."
+)
+
+DISSENT_TEMPLATE = """The council was asked:
+
+<question>
+{question}
+</question>
+
+This was your answer:
+
+<your_answer>
+{own}
+</your_answer>
+
+This is what the council collectively concluded:
+
+<verdict>
+{verdict}
+</verdict>
+
+Your answer was ranked last. In under 200 words: do you stand by it, and what do you think
+the others got wrong?"""
+
+
+def dissent_messages(question: str, own: str, verdict: str) -> list[dict]:
+    return [
+        {"role": "system", "content": DISSENT_SYSTEM},
+        {"role": "user", "content": DISSENT_TEMPLATE.format(
+            question=question, own=own, verdict=verdict)},
     ]

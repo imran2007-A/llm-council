@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from council import storage, usage
 from council.config import CHAIRMAN, PROVIDERS, SEATS
-from council.council import run_council
+from council.council import ask_dissenter, run_council
 from council.providers import BUDGET
 
 app = FastAPI(title="LLM Council", version="2.0")
@@ -195,6 +195,25 @@ def get_run(run_id: str) -> dict:
         return run.transcript
     return {"run_id": run_id, "question": run.question,
             "running": True, "events": run.events}
+
+
+class DissentRequest(BaseModel):
+    """Omit seat to ask whoever the council ranked last."""
+    seat: str | None = None
+    dry_run: bool = False
+
+
+@app.post("/api/council/{run_id}/dissent")
+async def dissent(run_id: str, req: DissentRequest) -> dict:
+    """Ask a member to defend the answer its peers marked down. Costs one request."""
+    run = RUNS.get(run_id)
+    transcript = run.transcript if run else None
+    if transcript is None:
+        with suppress(FileNotFoundError):
+            transcript = storage.load_transcript(run_id)
+    if transcript is None:
+        raise HTTPException(404, f"No finished run {run_id}")
+    return await ask_dissenter(transcript, seat_id=req.seat, dry_run=req.dry_run)
 
 
 @app.get("/api/runs")

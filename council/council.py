@@ -13,9 +13,10 @@ import random
 import time
 from typing import Awaitable, Callable
 
-from . import prompts, storage, usage
+from . import prompts, storage, synthesis, usage
 from .config import (
     CHAIRMAN,
+    seat_by_id,
     CHAIRMAN_MAX_TOKENS,
     OPINION_MAX_TOKENS,
     REVIEW_MAX_TOKENS,
@@ -44,7 +45,28 @@ FAKE_REVIEW = (
     "Response A is clear but shallow. Response B has the strongest reasoning. "
     "Response C repeats itself.\n\nRANKING: {ranking}"
 )
-FAKE_VERDICT = "This is a dry-run verdict. No models were called."
+# The fake verdict carries the same structured sections a real Chairman emits, so a dry
+# run exercises the comparison table, the conflicts and the follow-ups too. An offline
+# mode that only covers half the interface is an offline mode you stop trusting.
+FAKE_VERDICT = """This is a dry-run verdict. No models were called.
+
+The council broadly agreed, with one dissent worth noting, and the reasoning below is
+placeholder text standing in for a real synthesis.
+
+===POSITIONS===
+A: Argues for the conservative option on reliability grounds
+B: Argues for the faster option, accepting more risk
+C: Says it depends on constraints not stated in the question
+D: Agrees with A but for different reasons
+
+===DISAGREEMENT===
+Whether speed of iteration outweighs long-term maintenance cost
+Whether the question can be answered without more context
+
+===FOLLOW-UPS===
+What would change your recommendation?
+How much does this decision cost to reverse later?
+Which option is easier to hire for?"""
 
 
 def _delta_hooks(on_event, seat_id: str, stage: str):
@@ -257,7 +279,27 @@ async def run_council(
         text=verdict.text,
     )
 
-    transcript["verdict"] = {"ok": verdict.ok, "text": verdict.text, "error": verdict.error}
+    # The Chairman's reply carries the verdict plus the comparison table, the points of
+    # conflict and the follow-up questions. Split them apart before anything is shown.
+    parsed = synthesis.parse(verdict.text) if verdict.ok else synthesis.Synthesis()
+    extras = parsed.resolve(anon.label_to_seat)
+
+    transcript["verdict"] = {
+        "ok": verdict.ok,
+        "text": extras["verdict"] or verdict.text,
+        "error": verdict.error,
+    }
+    transcript["positions"] = extras["positions"]
+    transcript["disagreement"] = extras["disagreement"]
+    transcript["followups"] = extras["followups"]
+
+    await _emit(
+        on_event, "synthesis_ready",
+        positions=extras["positions"],
+        disagreement=extras["disagreement"],
+        followups=extras["followups"],
+        verdict=extras["verdict"] or verdict.text,
+    )
     transcript["elapsed"] = round(time.time() - started, 2)
     usage.flush()
     transcript["budget"] = {
@@ -266,9 +308,61 @@ async def run_council(
     }
 
     if conversation_id and verdict.ok:
-        storage.append_turn(conversation_id, question, verdict.text, run_id)
+        storage.append_turn(
+            conversation_id, question, transcript["verdict"]["text"], run_id
+        )
 
     await _emit(on_event, "run_finished", ok=verdict.ok,
                 conversation_id=conversation_id)
     transcript["path"] = str(storage.save_transcript(transcript))
     return transcript
+
+
+async def ask_dissenter(
+    transcript: dict,
+    seat_id: str | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """Let the lowest-ranked member defend the answer its peers marked down.
+
+    One request, deliberately. This is the thing a single chatbot structurally cannot do:
+    the model is not asked to reconsider in the abstract, it is shown the conclusion the
+    room reached and asked whether it still disagrees.
+    """
+    ranking = transcript.get("ranking") or []
+    if seat_id is None:
+        if not ranking:
+            return {"ok": False, "error": "Nothing was ranked, so nobody came last."}
+        seat_id = ranking[-1]["seat"]
+
+    seat = seat_by_id(seat_id)
+    own = next(
+        (o["text"] for o in transcript.get("opinions", []) if o["seat"] == seat_id and o["ok"]),
+        "",
+    )
+    if seat is None or not own:
+        return {"ok": False, "error": f"No answer on record for {seat_id}."}
+
+    if dry_run:
+        return {
+            "ok": True,
+            "seat": seat_id,
+            "text": "This is a dry-run dissent. The member stands by its answer, "
+                    "and believes the others underweighted the cost of being wrong.",
+        }
+
+    reply = await call_model(
+        seat,
+        prompts.dissent_messages(
+            transcript.get("question", ""), own, transcript.get("verdict", {}).get("text", "")
+        ),
+        REVIEW_MAX_TOKENS,
+        temperature=0.6,
+    )
+    usage.flush()
+    return {
+        "ok": reply.ok,
+        "seat": seat_id,
+        "text": reply.text,
+        "error": reply.error,
+    }

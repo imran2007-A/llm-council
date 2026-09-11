@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-SUITES = ["tests_ranking.py", "tests_providers.py", "tests_council.py"]
+SUITES = ["tests_ranking.py", "tests_providers.py", "tests_synthesis.py",
+          "tests_council.py"]
 
 failed = []
 for suite in SUITES:
