@@ -8,6 +8,8 @@ import type { PointLight } from "three";
 import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
 import { AbstractForm, SeatEmblem } from "./Presence";
+import { MixamoAvatar, useMixamoClips } from "./MixamoAvatar";
+import { AVATAR_MODE, HAS_MIXAMO_CLIPS } from "../avatars";
 import { Floor, FormingRing, Table, seatPosition, seatRotation } from "./Table";
 import { formation } from "../phases";
 import type { Phase } from "../phases";
@@ -188,6 +190,10 @@ function SceneContents({
 
   const showEmblems = phase !== "forming" && phase !== "ready" && phase !== "asking";
 
+  // Loaded once and shared by every seat: Mixamo rigs all use the same bone names, so
+  // one set of clips drives the whole council.
+  const clips = useMixamoClips(AVATAR_MODE === "mixamo" && HAS_MIXAMO_CLIPS);
+
   // Hovering one member pulls light away from the rest. A lean, not a blackout.
   const dim = hovered ? 0.62 : 1;
 
@@ -246,12 +252,23 @@ function SceneContents({
               <Chair rise={rise} accent={accent} isChairman={isChairman} />
               {presence > 0.01 && (
                 <group scale={presence} position={[0, (1 - presence) * -0.5, 0]}>
-                  <AbstractForm
-                    state={state}
-                    accent={accent}
-                    isChairman={isChairman}
-                    hovered={isHovered || delivering}
-                  />
+                  {AVATAR_MODE === "mixamo" ? (
+                    <MixamoAvatar
+                      seatId={seat.id}
+                      state={state}
+                      accent={accent}
+                      isChairman={isChairman}
+                      hovered={isHovered || delivering}
+                      clips={clips}
+                    />
+                  ) : (
+                    <AbstractForm
+                      state={state}
+                      accent={accent}
+                      isChairman={isChairman}
+                      hovered={isHovered || delivering}
+                    />
+                  )}
                 </group>
               )}
               {showEmblems && (
