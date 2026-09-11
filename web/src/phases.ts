@@ -20,11 +20,13 @@ export type Phase =
   | "deliberating"
   /** Stage 2 result: the ranking is revealed. */
   | "ranked"
+  /** Every member's position, side by side, before the verdict. */
+  | "tabulate"
   /** Stage 3: the Chairman's verdict is on screen. */
   | "verdict";
 
 export const PHASE_ORDER: Phase[] = [
-  "forming", "ready", "asking", "answering", "deliberating", "ranked", "verdict",
+  "forming", "ready", "asking", "answering", "deliberating", "ranked", "tabulate", "verdict",
 ];
 
 /**

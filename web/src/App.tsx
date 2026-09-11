@@ -1,6 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useCouncil } from "./hooks/useCouncil";
-import { AnswerPanel, AskBox, Deliberation, RankingPanel, Verdict } from "./components/Overlays";
+import {
+  AnswerPanel, AskBox, Deliberation, DissentPanel, FollowUps, RankingPanel,
+  Tabulate, Verdict,
+} from "./components/Overlays";
 import {
   DELIBERATION_MIN_MS, formation, markFormationSeen, shouldPlayFormation,
 } from "./phases";
@@ -24,6 +27,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("forming");
   const [elapsed, setElapsed] = useState(0);
   const [openSeat, setOpenSeat] = useState<string | null>(null);
+  const [dissentClosed, setDissentClosed] = useState(false);
   const deliberationStarted = useRef(0);
 
   /* ---------------------------------------------------------- formation sequence */
@@ -92,12 +96,21 @@ export default function App() {
   const nextQuestion = useCallback(() => {
     council.reset();
     setOpenSeat(null);
+    setDissentClosed(false);
     setPhase("ready");
   }, [council]);
 
   const config = council.config;
   const everyone = config ? [...config.seats, config.chairman] : [];
   const seatConfig = everyone.find((s) => s.id === openSeat) ?? null;
+
+  // Whoever the council put last. Offered, not fetched: it costs a request.
+  const lastRanked = council.ranking.length
+    ? council.ranking[council.ranking.length - 1].seat
+    : null;
+  const dissenter = (!dissentClosed && lastRanked)
+    ? everyone.find((s) => s.id === lastRanked) ?? null
+    : null;
 
   return (
     <div className="app">
@@ -141,6 +154,15 @@ export default function App() {
         open={phase === "ranked"}
         ranking={council.ranking}
         seats={everyone}
+        onContinue={() => setPhase("tabulate")}
+      />
+
+      <Tabulate
+        open={phase === "tabulate"}
+        positions={council.synthesis?.positions ?? []}
+        disagreement={council.synthesis?.disagreement ?? []}
+        ranking={council.ranking}
+        seats={everyone}
         onContinue={() => setPhase("verdict")}
       />
 
@@ -149,7 +171,19 @@ export default function App() {
         text={council.verdict}
         streaming={council.running}
         onNext={nextQuestion}
-      />
+      >
+        <FollowUps
+          questions={council.synthesis?.followups ?? []}
+          onAsk={(question) => { setPhase("answering"); council.ask(question, { dryRun: DRY_RUN }); }}
+        />
+        <DissentPanel
+          seat={dissenter}
+          dissent={council.dissent}
+          pending={council.dissentPending}
+          onAsk={() => council.askDissenter()}
+          onClose={() => setDissentClosed(true)}
+        />
+      </Verdict>
 
       <AnswerPanel
         seat={seatConfig}

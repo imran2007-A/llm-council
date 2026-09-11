@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { RankingRow, SeatConfig, SeatState } from "../types";
+import type {
+  Dissent as DissentData, Position, RankingRow, SeatConfig, SeatState,
+} from "../types";
 import { seatColor } from "../theme";
 
 /**
@@ -178,12 +180,13 @@ export function RankingPanel({
 /* ------------------------------------------------------------------------- verdict */
 
 export function Verdict({
-  open, text, streaming, onNext,
+  open, text, streaming, onNext, children,
 }: {
   open: boolean;
   text: string;
   streaming: boolean;
   onNext: () => void;
+  children?: React.ReactNode;
 }) {
   return (
     <div className={`verdict ${open ? "is-open" : ""}`} aria-hidden={!open}>
@@ -193,6 +196,7 @@ export function Verdict({
           <Prose text={text} />
           {streaming && <span className="caret" />}
         </div>
+        {children}
       </div>
       <button className="btn btn--next" onClick={onNext}>
         Next question →
@@ -255,4 +259,166 @@ function inline(text: string): React.ReactNode {
     }
     return part;
   });
+}
+
+/* ------------------------------------------------------------------------ tabulate */
+
+/**
+ * Every member's position, side by side, in one line each.
+ *
+ * Four full answers cannot be compared by reading them in sequence -- by the time you
+ * reach the fourth you have lost the first. One line each, on one screen, is the only
+ * arrangement in which the council's spread is actually visible.
+ */
+export function Tabulate({
+  open, positions, ranking, seats, disagreement, onContinue,
+}: {
+  open: boolean;
+  positions: Position[];
+  ranking: RankingRow[];
+  seats: SeatConfig[];
+  disagreement: string[];
+  onContinue: () => void;
+}) {
+  const rankOf = (seatId: string) => {
+    const index = ranking.findIndex((r) => r.seat === seatId);
+    return index < 0 ? null : index + 1;
+  };
+  const labelFor = (id: string) => seats.find((s) => s.id === id)?.label ?? id;
+
+  return (
+    <div className={`tabulate ${open ? "is-open" : ""}`} aria-hidden={!open}>
+      <div className="tabulate__panel">
+        <header className="tabulate__head">
+          <h2>Where the council stood</h2>
+          <p>One line each, in the order they were ranked.</p>
+        </header>
+
+        <ul className="tabulate__list">
+          {positions.map((position, i) => (
+            <li
+              key={position.label}
+              style={{
+                "--accent": seatColor(position.seat),
+                "--mark": `url(/brand/emblem-${position.seat}.png)`,
+                "--delay": `${i * 60}ms`,
+              } as React.CSSProperties}
+            >
+              <span className="tabulate__emblem" aria-hidden />
+              <span className="tabulate__who">
+                <strong>{labelFor(position.seat)}</strong>
+                {rankOf(position.seat) && (
+                  <span className="tabulate__rank">#{rankOf(position.seat)}</span>
+                )}
+              </span>
+              <span className="tabulate__said">{position.text}</span>
+            </li>
+          ))}
+        </ul>
+
+        {disagreement.length > 0 && (
+          <section className="conflict">
+            <h3>Where they disagreed</h3>
+            <ul>
+              {disagreement.map((point, i) => (
+                <li key={i} style={{ "--delay": `${(positions.length + i) * 60}ms` } as React.CSSProperties}>
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <button className="btn btn--primary btn--wide" onClick={onContinue}>
+          Hear the verdict
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------- dissent */
+
+/**
+ * The member the council ranked last, asked whether it stands by its answer.
+ *
+ * A single chatbot cannot do this: there is no room to have overruled it. Costs one
+ * request, so it is offered rather than fetched automatically.
+ */
+export function DissentPanel({
+  seat, dissent, pending, onAsk, onClose,
+}: {
+  seat: SeatConfig | null;
+  dissent: DissentData | null;
+  pending: boolean;
+  onAsk: () => void;
+  onClose: () => void;
+}) {
+  if (!seat) return null;
+  const open = pending || Boolean(dissent);
+
+  return (
+    <>
+      {!open && (
+        <button className="dissent__invite" onClick={onAsk}>
+          <span
+            className="dissent__emblem"
+            aria-hidden
+            style={{
+              "--accent": seatColor(seat.id),
+              "--mark": `url(/brand/emblem-${seat.id}.png)`,
+            } as React.CSSProperties}
+          />
+          Ask {seat.label} why it disagreed
+          <span className="dissent__cost">1 request</span>
+        </button>
+      )}
+
+      <div className={`dissent ${open ? "is-open" : ""}`} aria-hidden={!open}>
+        <div
+          className="dissent__panel"
+          style={{ "--accent": seatColor(seat.id) } as React.CSSProperties}
+        >
+          <header>
+            <p className="dissent__eyebrow">Ranked last · defending its answer</p>
+            <h3>{seat.label}</h3>
+            <button className="btn btn--icon" onClick={onClose} aria-label="Close">✕</button>
+          </header>
+          {pending
+            ? <p className="dissent__waiting">Putting it to them<span className="ellipsis" /></p>
+            : dissent?.ok
+              ? <Prose text={dissent.text ?? ""} />
+              : <p className="sheet__error">{dissent?.error ?? "No reply."}</p>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ----------------------------------------------------------------------- follow-ups */
+
+export function FollowUps({
+  questions, onAsk,
+}: {
+  questions: string[];
+  onAsk: (question: string) => void;
+}) {
+  if (!questions.length) return null;
+  return (
+    <div className="followups">
+      <p className="followups__label">Ask next</p>
+      <div className="followups__row">
+        {questions.map((question, i) => (
+          <button
+            key={question}
+            className="followups__chip"
+            style={{ "--delay": `${i * 70}ms` } as React.CSSProperties}
+            onClick={() => onAsk(question)}
+          >
+            {question}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }

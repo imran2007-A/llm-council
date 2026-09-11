@@ -1,0 +1,368 @@
+/* Emblems, the comparison table, follow-ups and the dissent panel.
+   Split from index.css so the base theme stays readable. */
+
+/* ==================================================================== emblems (3D) */
+
+/* The whole readout during a run. No prose at the table: a mark, a state, and a name on
+   hover. Four blocks of text racing each other cannot be read at that speed, and they
+   bury the only thing worth watching, which is who is still thinking. */
+
+.emblem {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  /* Only transform and opacity animate here: both skip layout and paint. */
+  transition: transform 260ms var(--ease-out);
+}
+.emblem[data-interactive] { cursor: pointer; }
+
+/* Touch devices fire hover on tap, so gate it. */
+@media (hover: hover) and (pointer: fine) {
+  .emblem[data-hovered] { transform: scale(1.14); }
+}
+.emblem[data-interactive]:active { transform: scale(1.04); }
+
+.emblem__mark {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  mask-image: var(--mark);
+  -webkit-mask-image: var(--mark);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+  opacity: 0.55;
+  transition: opacity 260ms var(--ease-out);
+}
+.emblem[data-status="thinking"] .emblem__mark,
+.emblem[data-status="speaking"] .emblem__mark { opacity: 1; }
+.emblem[data-status="done"] .emblem__mark { opacity: 0.85; }
+.emblem[data-status="failed"] .emblem__mark { background: var(--bad); opacity: 0.6; }
+.emblem[data-hovered] .emblem__mark { opacity: 1; }
+
+/* The ring carries the state. It sweeps while the model works and closes when the answer
+   lands, so progress is legible across the room with no text at all. */
+.emblem__ring {
+  position: absolute;
+  inset: 0;
+  width: 48px;
+  height: 48px;
+  overflow: visible;
+}
+.emblem__track,
+.emblem__arc {
+  fill: none;
+  stroke-width: 1.5;
+  transform-origin: center;
+}
+.emblem__track { stroke: rgba(255, 255, 255, 0.08); }
+.emblem__arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 132;
+  stroke-dashoffset: 132;
+  opacity: 0.9;
+  transition: stroke-dashoffset 520ms var(--ease-out), opacity 260ms;
+}
+
+/* Indeterminate while waiting on a provider: a short arc chasing the circle. */
+.emblem[data-status="thinking"] .emblem__arc,
+.emblem[data-status="speaking"] .emblem__arc {
+  stroke-dasharray: 30 102;
+  stroke-dashoffset: 0;
+  animation: emblem-sweep 1.5s linear infinite;
+}
+/* Faster once tokens are actually arriving: the speed itself reports throughput. */
+.emblem[data-status="speaking"] .emblem__arc { animation-duration: 0.9s; }
+.emblem[data-status="done"] .emblem__arc { stroke-dashoffset: 0; }
+.emblem[data-status="failed"] .emblem__arc {
+  stroke: var(--bad);
+  stroke-dasharray: 8 12;
+  stroke-dashoffset: 0;
+  opacity: 0.7;
+}
+@keyframes emblem-sweep { to { transform: rotate(360deg); } }
+
+.emblem__pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 68%);
+  opacity: 0.16;
+  animation: emblem-breathe 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes emblem-breathe {
+  50% { opacity: 0.34; transform: scale(1.1); }
+}
+
+.emblem__label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  white-space: nowrap;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  /* Never scale from 0: nothing in the real world appears out of nothing. */
+  transform: translate(-50%, 2px) scale(0.94);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.emblem[data-hovered] .emblem__label {
+  opacity: 1;
+  transform: translate(-50%, 6px) scale(1);
+}
+
+/* ======================================================================= tabulate */
+
+.tabulate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 4vh 4vw;
+  background: rgba(10, 8, 6, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms var(--ease-out), background 420ms var(--ease-out);
+  z-index: 42;
+}
+.tabulate.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  background: rgba(10, 8, 6, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.tabulate__panel {
+  width: min(760px, 100%);
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: 2.2rem 2.4rem;
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--surface), var(--chamber));
+  border: 1px solid var(--line);
+  /* The inner highlight is the detail that separates "premium" from "flat panel". */
+  box-shadow: 0 50px 120px -40px #000, inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transform: translateY(16px) scale(0.985);
+  transition: transform 460ms var(--ease-spring);
+}
+.tabulate.is-open .tabulate__panel { transform: none; }
+
+.tabulate__head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.7rem;
+}
+.tabulate__head p {
+  margin: 0.25rem 0 1.6rem;
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+}
+
+.tabulate__list { list-style: none; margin: 0; padding: 0; }
+.tabulate__list li {
+  display: grid;
+  grid-template-columns: 26px 190px 1fr;
+  align-items: baseline;
+  gap: 0.9rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+  opacity: 0;
+}
+.tabulate.is-open .tabulate__list li {
+  animation: fade-up 420ms var(--ease-out) forwards;
+  animation-delay: var(--delay);
+}
+.tabulate__list li:last-child { border-bottom: 1px solid var(--line); }
+
+.tabulate__emblem {
+  width: 18px;
+  height: 18px;
+  align-self: center;
+  background: var(--accent);
+  mask-image: var(--mark);
+  -webkit-mask-image: var(--mark);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+.tabulate__who { display: flex; align-items: baseline; gap: 0.5rem; }
+.tabulate__who strong { color: var(--ink); font-weight: 500; font-size: 0.88rem; }
+.tabulate__rank {
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.tabulate__said { color: var(--ink-muted); font-size: 0.88rem; line-height: 1.5; }
+
+.conflict { margin-top: 1.8rem; }
+.conflict h3 {
+  margin: 0 0 0.7rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--bad);
+}
+.conflict ul { list-style: none; margin: 0; padding: 0; }
+.conflict li {
+  position: relative;
+  padding-left: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  opacity: 0;
+}
+.tabulate.is-open .conflict li {
+  animation: fade-up 420ms var(--ease-out) forwards;
+  animation-delay: var(--delay);
+}
+.conflict li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bad);
+  opacity: 0.75;
+}
+
+/* ===================================================================== follow-ups */
+
+.followups { margin-top: 1.8rem; }
+.followups__label {
+  margin: 0 0 0.7rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.followups__row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.followups__chip {
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  transition: transform 160ms var(--ease-out), border-color 200ms, color 200ms;
+}
+.verdict.is-open .followups__chip {
+  animation: fade-up 400ms var(--ease-out) forwards;
+  animation-delay: var(--delay);
+}
+.followups__chip:hover { color: var(--ink); border-color: var(--brass); }
+.followups__chip:active { transform: scale(0.975); }
+
+/* ======================================================================== dissent */
+
+.dissent__invite {
+  margin-top: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem 0.6rem 0.8rem;
+  border-radius: 999px;
+  /* Dashed until pressed: this one costs a request, so it should not look like a tab. */
+  border: 1px dashed var(--line);
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-out), border-color 200ms, color 200ms;
+}
+.dissent__invite:hover {
+  color: var(--ink);
+  border-color: var(--brass);
+  border-style: solid;
+}
+.dissent__invite:active { transform: scale(0.975); }
+.dissent__cost {
+  color: var(--ink-faint);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.dissent__emblem {
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  mask-image: var(--mark);
+  -webkit-mask-image: var(--mark);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+}
+
+/* grid-template-rows 0fr -> 1fr animates height without knowing the content size, and
+   without animating height itself. */
+.dissent {
+  margin-top: 1.4rem;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 420ms var(--ease-out), opacity 320ms var(--ease-out);
+}
+.dissent.is-open { grid-template-rows: 1fr; opacity: 1; }
+.dissent__panel {
+  overflow: hidden;
+  min-height: 0;
+  padding: 0 1.2rem;
+  border-left: 2px solid var(--accent);
+  background: rgba(255, 255, 255, 0.014);
+}
+.dissent.is-open .dissent__panel { padding: 1.2rem; }
+.dissent__panel header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin-bottom: 0.8rem;
+}
+.dissent__panel h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--accent);
+  font-weight: 500;
+}
+.dissent__eyebrow {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.dissent__panel header .btn--icon { margin-left: auto; }
+.dissent__waiting { color: var(--ink-faint); font-size: 0.85rem; }
+
+.ellipsis::after {
+  content: "";
+  animation: ellipsis 1.4s steps(4, end) infinite;
+}
+@keyframes ellipsis {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}

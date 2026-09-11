@@ -23,9 +23,9 @@ export function Table({ rise = 1 }: TableProps) {
       <mesh position={[0, 0.74, 0]} receiveShadow castShadow>
         <cylinderGeometry args={[TABLE_RADIUS, TABLE_RADIUS, 0.1, 64]} />
         <meshStandardMaterial
-          color={hex(palette.walnut)}
-          roughness={0.32}
-          metalness={0.12}
+          color={hex(palette.walnutDark)}
+          roughness={0.5}
+          metalness={0.18}
         />
       </mesh>
 

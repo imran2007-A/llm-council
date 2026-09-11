@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CouncilConfig,
   CouncilEvent,
+  Dissent,
   RankingRow,
   SeatState,
   Stage,
+  SynthesisData,
 } from "../types";
 
 /**
@@ -16,6 +18,9 @@ import type {
  */
 
 const STAGES: Stage[] = ["opinions", "review", "chairman"];
+
+/** Mirrors the flag in App.tsx, so a dry run never spends a request on a dissent either. */
+const DRY_RUN = new URLSearchParams(window.location.search).has("dry");
 
 function blankSeat(id: string): SeatState {
   return {
@@ -39,6 +44,11 @@ export interface CouncilState {
   stagesDone: Stage[];
   ranking: RankingRow[];
   verdict: string;
+  /** The comparison table, the conflicts and the follow-ups, from the Chairman's own reply. */
+  synthesis: SynthesisData | null;
+  dissent: Dissent | null;
+  dissentPending: boolean;
+  askDissenter: (seatId?: string) => Promise<void>;
   running: boolean;
   question: string;
   conversationId: string | null;
@@ -61,6 +71,10 @@ export function useCouncil(): CouncilState {
   const [stagesDone, setStagesDone] = useState<Stage[]>([]);
   const [ranking, setRanking] = useState<RankingRow[]>([]);
   const [verdict, setVerdict] = useState("");
+  const [synthesis, setSynthesis] = useState<SynthesisData | null>(null);
+  const [dissent, setDissent] = useState<Dissent | null>(null);
+  const [dissentPending, setDissentPending] = useState(false);
+  const runIdRef = useRef<string | null>(null);
   const [running, setRunning] = useState(false);
   const [question, setQuestion] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -103,6 +117,10 @@ export function useCouncil(): CouncilState {
           break;
 
         case "seat_token":
+          // Tokens advance the seat's state but are NOT accumulated into visible text
+          // during the run. Four blocks of prose racing each other cannot be read at that
+          // speed, and they bury the only thing worth watching, which is who is still
+          // thinking. The full answer arrives in one piece on seat_finished.
           setSeats((prev) => {
             const seat = prev[event.seat] ?? blankSeat(event.seat);
             return {
@@ -110,7 +128,6 @@ export function useCouncil(): CouncilState {
               [event.seat]: {
                 ...seat,
                 status: "speaking",
-                text: seat.text + event.text,
                 tokenCount: seat.tokenCount + 1,
                 lastTokenAt: performance.now(),
               },
@@ -119,8 +136,8 @@ export function useCouncil(): CouncilState {
           break;
 
         case "seat_reset":
-          // The attempt that produced this text failed; a retry or fallback is starting
-          // over. Discard it rather than leaving half an answer on screen.
+          // The attempt failed; a retry or fallback is starting over. The ring resets so
+          // the seat visibly begins again rather than appearing to stall.
           patchSeat(event.seat, { text: "", status: "thinking", tokenCount: 0 });
           break;
 
@@ -140,6 +157,18 @@ export function useCouncil(): CouncilState {
 
         case "review_finished":
           setRanking(event.ranking);
+          break;
+
+        case "synthesis_ready":
+          setSynthesis({
+            positions: event.positions,
+            disagreement: event.disagreement,
+            followups: event.followups,
+            verdict: event.verdict,
+          });
+          // The Chairman's raw reply includes the trailing sections; show the verdict
+          // alone once they have been separated out.
+          if (event.verdict) setVerdict(event.verdict);
           break;
 
         case "run_finished":
@@ -170,6 +199,8 @@ export function useCouncil(): CouncilState {
       setError(null);
       setRanking([]);
       setVerdict("");
+      setSynthesis(null);
+      setDissent(null);
       setStage(null);
       setStagesDone([]);
       setSeats(Object.fromEntries(seatOrder.map((id) => [id, blankSeat(id)])));
@@ -191,6 +222,7 @@ export function useCouncil(): CouncilState {
         if (!response.ok) throw new Error(`API returned ${response.status}`);
         const started = await response.json();
         runId = started.run_id;
+        runIdRef.current = runId;
         setConversationId(started.conversation_id);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to start the council");
@@ -203,7 +235,8 @@ export function useCouncil(): CouncilState {
 
       const types: CouncilEvent["type"][] = [
         "stage_changed", "seat_started", "seat_token", "seat_reset", "cache_hit",
-        "seat_finished", "review_finished", "run_finished", "run_failed", "heartbeat",
+        "seat_finished", "review_finished", "synthesis_ready", "run_finished",
+        "run_failed", "heartbeat",
       ];
       for (const type of types) {
         source.addEventListener(type, (message) => {
@@ -232,6 +265,8 @@ export function useCouncil(): CouncilState {
     setStagesDone([]);
     setRanking([]);
     setVerdict("");
+    setSynthesis(null);
+    setDissent(null);
     setQuestion("");
     setRunning(false);
     setError(null);
@@ -242,8 +277,28 @@ export function useCouncil(): CouncilState {
     reset();
   }, [reset]);
 
+  const askDissenter = useCallback(async (seatId?: string) => {
+    const runId = runIdRef.current;
+    if (!runId || dissentPending) return;
+    setDissentPending(true);
+    setDissent(null);
+    try {
+      const response = await fetch(`/api/council/${runId}/dissent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seat: seatId ?? null, dry_run: DRY_RUN }),
+      });
+      setDissent(await response.json());
+    } catch (e) {
+      setDissent({ ok: false, error: e instanceof Error ? e.message : "Request failed" });
+    } finally {
+      setDissentPending(false);
+    }
+  }, [dissentPending]);
+
   return {
-    config, seats, seatOrder, stage, stagesDone, ranking, verdict,
+    config, seats, seatOrder, stage, stagesDone, ranking, verdict, synthesis,
+    dissent, dissentPending, askDissenter,
     running, question, conversationId, error, ask, reset, startNewConversation,
   };
 }

@@ -41,8 +41,8 @@ export function CentreButton({ visible, enabled, onClick, label }: Props) {
     if (glow.current) {
       // A slow pulse when idle says "press me" without a label shouting it. It stops
       // while disabled, which is how the table shows it is busy.
-      const pulse = enabled ? 0.55 + Math.sin(t * 1.8) * 0.25 : 0.12;
-      const target = hovered && enabled ? 1.5 : pulse;
+      const pulse = enabled ? 0.5 + Math.sin(t * 1.8) * 0.18 : 0.1;
+      const target = hovered && enabled ? 0.95 : pulse * 0.6;
       glow.current.emissiveIntensity += (target - glow.current.emissiveIntensity) * 0.12;
     }
 

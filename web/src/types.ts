@@ -56,6 +56,28 @@ export interface ConversationSummary {
   updated: number;
 }
 
+/** One member's position, in a line, for the comparison table. */
+export interface Position {
+  label: string;
+  seat: string;
+  text: string;
+}
+
+/** What the Chairman produced alongside the verdict, in the same request. */
+export interface SynthesisData {
+  positions: Position[];
+  disagreement: string[];
+  followups: string[];
+  verdict: string;
+}
+
+export interface Dissent {
+  ok: boolean;
+  seat?: string;
+  text?: string;
+  error?: string | null;
+}
+
 export interface ConversationTurn {
   run_id: string;
   question: string;
@@ -80,6 +102,7 @@ export type CouncilEvent =
       text: string;
     }
   | { type: "review_finished"; t: number; ranking: RankingRow[] }
+  | ({ type: "synthesis_ready"; t: number } & SynthesisData)
   | { type: "run_finished"; t: number; ok: boolean; conversation_id: string | null }
   | { type: "run_failed"; t: number; error: string }
   | { type: "heartbeat"; t: number };
