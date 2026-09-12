@@ -55,6 +55,7 @@ export interface CouncilState {
   error: string | null;
   ask: (question: string, options?: AskOptions) => Promise<void>;
   reset: () => void;
+  clearError: () => void;
   startNewConversation: () => void;
 }
 
@@ -272,6 +273,8 @@ export function useCouncil(): CouncilState {
     setError(null);
   }, [seatOrder]);
 
+  const clearError = useCallback(() => setError(null), []);
+
   const startNewConversation = useCallback(() => {
     setConversationId(null);
     reset();
@@ -299,6 +302,7 @@ export function useCouncil(): CouncilState {
   return {
     config, seats, seatOrder, stage, stagesDone, ranking, verdict, synthesis,
     dissent, dissentPending, askDissenter,
-    running, question, conversationId, error, ask, reset, startNewConversation,
+    running, question, conversationId, error, ask, reset, clearError,
+    startNewConversation,
   };
 }

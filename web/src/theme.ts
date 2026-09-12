@@ -26,7 +26,7 @@ export const palette = {
 
   ink: "#f2e9dc",
   inkMuted: "#a99883",
-  inkFaint: "#6b5d4d",
+  inkFaint: "#97846e",
 
   good: "#8fbf7a",
   bad: "#cf6b5a",
@@ -75,9 +75,38 @@ export const motion = {
   settle: "cubic-bezier(0.16, 1, 0.3, 1)",
 };
 
-/** Injected once at startup so CSS and three.js cannot disagree about a colour. */
+/**
+ * Injected once at startup so CSS and three.js cannot disagree about a colour.
+ *
+ * This was exported, documented, and imported by nothing -- and the two files had already
+ * drifted (inkFaint here still read #6b5d4d after the CSS was raised to #97846e for
+ * contrast). Now applyTheme() actually writes these onto :root at boot, so the palette
+ * has one owner and the stylesheet's own values are the fallback, not a second source.
+ */
 export function cssVariables(): string {
   const lines = Object.entries(palette).map(([k, v]) => `  --${k}: ${v};`);
   const seats = Object.entries(seatColors).map(([k, v]) => `  --seat-${k}: ${v};`);
   return `:root{\n${lines.join("\n")}\n${seats.join("\n")}\n  --font-display:${font.display};\n  --font-body:${font.body};\n  --ease-out:${motion.out};\n  --ease-settle:${motion.settle};\n}`;
+}
+
+
+/** Write the palette onto :root. Called once from main.tsx before React mounts. */
+export function applyTheme(): void {
+  const root = document.documentElement;
+  for (const [key, value] of Object.entries(palette)) {
+    root.style.setProperty(`--${kebab(key)}`, value);
+  }
+  for (const [key, value] of Object.entries(seatColors)) {
+    root.style.setProperty(`--seat-${key}`, value);
+  }
+  root.style.setProperty("--font-display", font.display);
+  root.style.setProperty("--font-body", font.body);
+  root.style.setProperty("--ease-out", motion.out);
+  root.style.setProperty("--ease-in-out", motion.inOut);
+  root.style.setProperty("--ease-settle", motion.settle);
+}
+
+/** brassLight -> brass-light, so the token names match what the stylesheets already use. */
+function kebab(name: string): string {
+  return name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 }

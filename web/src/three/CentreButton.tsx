@@ -15,11 +15,13 @@ interface Props {
   visible: boolean;
   /** Disabled while the council is working. */
   enabled: boolean;
+  /** The DOM trigger that gives this button a keyboard path is focused. */
+  focused?: boolean;
   onClick: () => void;
   label?: string;
 }
 
-export function CentreButton({ visible, enabled, onClick, label }: Props) {
+export function CentreButton({ visible, enabled, focused, onClick, label }: Props) {
   const group = useRef<Group>(null);
   const glow = useRef<MeshStandardMaterial>(null);
   const halo = useRef<Mesh>(null);
@@ -42,14 +44,17 @@ export function CentreButton({ visible, enabled, onClick, label }: Props) {
       // A slow pulse when idle says "press me" without a label shouting it. It stops
       // while disabled, which is how the table shows it is busy.
       const pulse = enabled ? 0.5 + Math.sin(t * 1.8) * 0.18 : 0.1;
-      const target = hovered && enabled ? 0.95 : pulse * 0.6;
+      // Keyboard focus lights it exactly as hover does, so the ring a keyboard user
+      // sees in the DOM is matched by the button itself lighting up in the scene.
+      const lit = (hovered || focused) && enabled;
+      const target = lit ? 0.95 : pulse * 0.6;
       glow.current.emissiveIntensity += (target - glow.current.emissiveIntensity) * 0.12;
     }
 
     if (halo.current) {
       // The halo breathes outward, like something radiating from the centre of the table.
       const s = enabled ? 1 + Math.sin(t * 1.8) * 0.06 : 1;
-      halo.current.scale.setScalar(s * (hovered && enabled ? 1.12 : 1));
+      halo.current.scale.setScalar(s * ((hovered || focused) && enabled ? 1.12 : 1));
     }
   });
 

@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { applyTheme } from "./theme";
 import "./index.css";
 import "./council.css";
 import "./responsive.css";
@@ -21,6 +22,8 @@ window.addEventListener("unhandledrejection", (e) => {
     ).slice(0, 300);
   } catch { /* ignore */ }
 });
+
+applyTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -1,11 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCouncil } from "./hooks/useCouncil";
 import {
-  AnswerPanel, AskBox, Deliberation, DissentPanel, FollowUps, RankingPanel,
+  AnswerPanel, AskBox, DissentPanel, FollowUps, RankingPanel, Stage,
   Tabulate, Verdict,
 } from "./components/Overlays";
 import {
-  DELIBERATION_MIN_MS, formation, markFormationSeen, shouldPlayFormation,
+  DELIBERATION_MIN_MS, VERDICT_HOLD_MS, formation, markFormationSeen,
+  prefersReducedMotion, shouldPlayFormation,
 } from "./phases";
 import type { Phase } from "./phases";
 
@@ -22,12 +23,19 @@ const CouncilScene = lazy(() =>
  */
 const DRY_RUN = new URLSearchParams(window.location.search).has("dry");
 
+/** How many seats have finished, for the live region. */
+function everyoneAnswered(seats: Record<string, { status: string }>): number {
+  return Object.values(seats).filter((s) => s.status === "done").length;
+}
+
 export default function App() {
   const council = useCouncil();
   const [phase, setPhase] = useState<Phase>("forming");
   const [elapsed, setElapsed] = useState(0);
   const [openSeat, setOpenSeat] = useState<string | null>(null);
   const [dissentClosed, setDissentClosed] = useState(false);
+  const [centreFocused, setCentreFocused] = useState(false);
+  const [verdictPanelOpen, setVerdictPanelOpen] = useState(false);
   const deliberationStarted = useRef(0);
 
   /* ---------------------------------------------------------- formation sequence */
@@ -87,6 +95,20 @@ export default function App() {
     return () => clearTimeout(id);
   }, [council.ranking, phase]);
 
+  // Let the camera have the Chairman alone for a beat before the panel covers the room.
+  useEffect(() => {
+    if (phase !== "verdict") {
+      setVerdictPanelOpen(false);
+      return;
+    }
+    if (prefersReducedMotion()) {
+      setVerdictPanelOpen(true);
+      return;
+    }
+    const id = setTimeout(() => setVerdictPanelOpen(true), VERDICT_HOLD_MS);
+    return () => clearTimeout(id);
+  }, [phase]);
+
   /* ------------------------------------------------------------------- interaction */
   const ask = useCallback((question: string) => {
     council.ask(question, { dryRun: DRY_RUN });
@@ -99,6 +121,21 @@ export default function App() {
     setDissentClosed(false);
     setPhase("ready");
   }, [council]);
+
+  // Spoken, not shown. Phase changes and seat completions are the two things a sighted
+  // user reads off the rings and nobody else could perceive at all.
+  const answered = everyoneAnswered(council.seats);
+  const announcement = useMemo(() => {
+    switch (phase) {
+      case "asking": return "Question box open.";
+      case "answering": return `Stage 1 of 3. The council is answering. ${answered} have replied.`;
+      case "deliberating": return "Stage 2 of 3. The council is reviewing each other's answers.";
+      case "ranked": return "The council has ranked the answers.";
+      case "tabulate": return "Every member's position, side by side.";
+      case "verdict": return "Stage 3 of 3. The Chairman has delivered the verdict.";
+      default: return "";
+    }
+  }, [phase, answered]);
 
   const config = council.config;
   const everyone = config ? [...config.seats, config.chairman] : [];
@@ -122,6 +159,7 @@ export default function App() {
             seatStates={council.seats}
             phase={phase}
             elapsed={elapsed}
+            centreFocused={centreFocused}
             onCentreClick={() => setPhase("asking")}
             onOpenSeat={setOpenSeat}
           />
@@ -136,9 +174,21 @@ export default function App() {
       </div>
 
       {phase === "ready" && (
-        <p className="prompt-hint">
-          {council.conversationId ? "Ask a follow-up" : "Touch the centre of the table"}
-        </p>
+        <>
+          <button
+            className="centre-trigger"
+            onClick={() => setPhase("asking")}
+            onFocus={() => setCentreFocused(true)}
+            onBlur={() => setCentreFocused(false)}
+          >
+            {council.conversationId
+              ? "Ask the council a follow-up question"
+              : "Put a question to the council"}
+          </button>
+          <p className="prompt-hint" aria-hidden>
+            {council.conversationId ? "Ask a follow-up" : "Touch the centre of the table"}
+          </p>
+        </>
       )}
 
       <AskBox
@@ -148,7 +198,17 @@ export default function App() {
         onCancel={() => setPhase("ready")}
       />
 
-      <Deliberation active={phase === "deliberating"} />
+      <Stage
+        active={phase === "answering"}
+        title="The council answers"
+        detail="Four members are answering independently. None of them can see the others yet."
+      />
+
+      <Stage
+        active={phase === "deliberating"}
+        title="The council deliberates"
+        detail="Each member is reading the others' answers — with every name removed."
+      />
 
       <RankingPanel
         open={phase === "ranked"}
@@ -167,10 +227,12 @@ export default function App() {
       />
 
       <Verdict
-        open={phase === "verdict"}
+        open={phase === "verdict" && verdictPanelOpen}
         text={council.verdict}
+        question={council.question}
         streaming={council.running}
         onNext={nextQuestion}
+        onBack={() => setPhase("tabulate")}
       >
         <FollowUps
           questions={council.synthesis?.followups ?? []}
@@ -191,7 +253,20 @@ export default function App() {
         onClose={() => setOpenSeat(null)}
       />
 
-      {council.error && <p className="error-toast">{council.error}</p>}
+      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+
+      {council.error && (
+        <p className="error-toast" role="alert">
+          {council.error}
+          <button
+            className="error-toast__dismiss"
+            onClick={council.clearError}
+            aria-label="Dismiss"
+          >
+            Dismiss
+          </button>
+        </p>
+      )}
 
       {/* Always available once a question has been asked, so you are never trapped in a
           stage waiting for a model that is never going to answer. */}

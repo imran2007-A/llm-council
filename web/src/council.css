@@ -150,9 +150,11 @@
   padding: 2.2rem 2.4rem;
   border-radius: 18px;
   background: linear-gradient(180deg, var(--surface), var(--chamber));
-  border: 1px solid var(--line);
-  /* The inner highlight is the detail that separates "premium" from "flat panel". */
-  box-shadow: 0 50px 120px -40px #000, inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  /* Elevation carries the edge: a shadow plus a 1px inner highlight, with no hairline
+     border on top of them. Pairing a thin border with a wide diffuse shadow is the
+     generated-UI signature the detector flags, and the fix is to pick one. */
+  box-shadow: 0 20px 44px -20px rgba(0, 0, 0, 0.95),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transform: translateY(16px) scale(0.985);
   transition: transform 460ms var(--ease-settle);
 }
@@ -367,4 +369,93 @@
   25% { content: "."; }
   50% { content: ".."; }
   75% { content: "..."; }
+}
+
+
+/* ----------------------------------------------------------- keyboard + a11y */
+
+/* The centre button is a raycast mesh, which no keyboard or screen reader can reach.
+   This sits over it: focusable and announced, transparent to the mouse so the 3D
+   button keeps handling pointer input. */
+.centre-trigger {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: transparent;
+  font-size: 0;
+  cursor: pointer;
+  pointer-events: none;   /* the mesh takes the clicks; Tab still reaches this */
+  z-index: 25;
+}
+.centre-trigger:focus-visible {
+  outline: 2px solid var(--brass-light);
+  outline-offset: 6px;
+}
+
+/* Announced, never shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --------------------------------------------------------------- verdict head */
+
+.verdict__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.verdict__title { margin: 0; }
+
+/* The question, kept on screen so the verdict can be judged against it. */
+.verdict__question {
+  margin: 0.5rem 0 1.4rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  line-height: 1.45;
+  max-width: 60ch;
+}
+
+.verdict__actions {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.btn--quiet {
+  border-color: transparent;
+  color: var(--ink-faint);
+  padding: 0.5rem 0.9rem;
+}
+.btn--quiet:hover:not(:disabled) { color: var(--ink); border-color: var(--line); }
+
+.error-toast__dismiss {
+  margin-left: 0.9rem;
+  background: none;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font: inherit;
 }

@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, OrbitControls } from "@react-three/drei";
+import { ContactShadows } from "@react-three/drei";
 import { Bloom, EffectComposer, Noise, Vignette } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -54,11 +54,34 @@ function CameraRig({ phase, elapsed, chairmanPosition }: CameraProps) {
   const scratch = useRef(new Vector3());
   const focusPoint = useRef(new Vector3(0, 0.9, 0));
 
-  // A camera framed for a wide desktop viewport crops the table in portrait: the seats
-  // fall outside the frame and only the tabletop is left. Pull back as the viewport
-  // narrows so the whole council stays in shot on a phone.
+  // A camera framed for a wide desktop viewport crops the council in portrait. An earlier
+  // attempt scaled the distance by a hand-tuned factor and did not survive a fresh load,
+  // so this computes the distance the frustum actually requires instead of guessing.
+  //
+  // In portrait the horizontal field of view is the binding one, and it is narrower than
+  // the vertical: halfH = atan(tan(halfV) * aspect). The distance that fits a circle of
+  // radius R is R / tan(halfAngle), taking whichever axis is tighter.
+  // Distance alone cannot solve portrait: fitting a 4-unit circle across a narrow screen
+  // at a 40 degree lens puts the camera 27 units back, which is geometrically correct and
+  // visually useless -- the room becomes a speck. A wider lens on narrow viewports is the
+  // conventional answer, so the fov opens up first and distance only covers what is left.
+  const COUNCIL_RADIUS = 4.0;   // the ring of chairs, accepting a little crop at the edges
   const aspect = size.width / Math.max(1, size.height);
-  const pullback = aspect >= 1.4 ? 1 : 1 + (1.4 - Math.max(aspect, 0.45)) * 0.62;
+  const fov = aspect >= 1.3 ? 40 : aspect >= 0.9 ? 50 : 62;
+
+  useEffect(() => {
+    const perspective = camera as unknown as { fov: number; updateProjectionMatrix: () => void };
+    if (perspective.fov !== fov) {
+      perspective.fov = fov;
+      perspective.updateProjectionMatrix();
+    }
+  }, [camera, fov]);
+
+  const fitDistance = (() => {
+    const halfV = (fov * Math.PI) / 360;
+    const halfH = Math.atan(Math.tan(halfV) * aspect);
+    return COUNCIL_RADIUS / Math.tan(Math.max(0.08, Math.min(halfV, halfH)));
+  })();
 
   useFrame((_, delta) => {
     if (phase === "forming") {
@@ -73,6 +96,8 @@ function CameraRig({ phase, elapsed, chairmanPosition }: CameraProps) {
       );
       lookAt.current.set(0, 0.9, 0);
     } else if (phase === "verdict") {
+      // The panel fades in after VERDICT_HOLD_MS (see phases.ts), so this move is visible
+      // for about a second before anything covers it.
       // Push in on the Chairman. The verdict is the one moment the room has a single
       // speaker, so the camera stops presenting a table and starts presenting a person.
       const [cx, , cz] = chairmanPosition;
@@ -86,10 +111,14 @@ function CameraRig({ phase, elapsed, chairmanPosition }: CameraProps) {
       lookAt.current.set(0, 0.9, 0);
     }
 
-    // Portrait viewports need the camera further out; the verdict push-in is deliberately
-    // close, so it is left alone.
-    if (phase !== "verdict" && pullback !== 1) {
-      position.current.multiplyScalar(pullback);
+    // Push the camera out to whatever the frustum needs, never pull it in: a wide desktop
+    // viewport already fits, so this is a no-op there. The verdict push-in is deliberately
+    // close and framed on one seat, so it is exempt.
+    if (phase !== "verdict") {
+      const distance = position.current.length();
+      if (distance < fitDistance) {
+        position.current.multiplyScalar(fitDistance / distance);
+      }
     }
 
     // Frame-rate independent easing, so the move feels identical at 60Hz and 144Hz.
@@ -177,12 +206,14 @@ interface Props {
   seatStates: Record<string, SeatState>;
   phase: Phase;
   elapsed: number;
+  /** The keyboard trigger is focused, so the 3D button should look focused too. */
+  centreFocused?: boolean;
   onCentreClick: () => void;
   onOpenSeat: (seatId: string) => void;
 }
 
 function SceneContents({
-  seats, chairman, seatStates, phase, elapsed, onCentreClick, onOpenSeat,
+  seats, chairman, seatStates, phase, elapsed, centreFocused, onCentreClick, onOpenSeat,
 }: Props) {
   const everyone = useMemo(() => [...seats, chairman], [seats, chairman]);
   const total = everyone.length;
@@ -303,6 +334,7 @@ function SceneContents({
       <CentreButton
         visible={phase === "ready"}
         enabled={phase === "ready"}
+        focused={centreFocused}
         onClick={onCentreClick}
       />
 
@@ -312,15 +344,10 @@ function SceneContents({
         chairmanPosition={positions[total - 1]}
       />
 
-      <OrbitControls
-        enablePan={false}
-        // Released to the user only when the camera is not telling a story of its own.
-        enabled={phase !== "forming" && phase !== "verdict"}
-        minDistance={4.5}
-        maxDistance={13}
-        maxPolarAngle={Math.PI / 2.15}
-        target={[0, 0.9, 0]}
-      />
+      {/* No OrbitControls. It was mounted and grabbed the cursor, but CameraRig writes
+          camera.position every frame, so dragging produced a twitch and an instant snap
+          back. An affordance that invites a gesture it cannot honour is worse than none:
+          the camera belongs to the phase. */}
 
       {/* Filmic grade. Tone mapping plus a little bloom does more for "cinematic" than
           any amount of extra geometry; grain and vignette stop dark areas banding on

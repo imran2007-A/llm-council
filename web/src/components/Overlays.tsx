@@ -57,7 +57,7 @@ export function AskBox({
   }, [open, onCancel]);
 
   return (
-    <div className={`ask ${open ? "is-open" : ""}`} aria-hidden={!open}>
+    <div className={`ask ${open ? "is-open" : ""}`} inert={!open}>
       <div className="ask__panel">
         <p className="ask__eyebrow">{isFollowUp ? "Follow-up" : "Put a question to the council"}</p>
         <textarea
@@ -111,7 +111,7 @@ export function AnswerPanel({
   }, [seat, onClose]);
 
   return (
-    <div className={`sheet ${seat ? "is-open" : ""}`} aria-hidden={!seat}>
+    <div className={`sheet ${seat ? "is-open" : ""}`} inert={!seat}>
       <div className="sheet__scrim" onClick={onClose} />
       <article className="sheet__panel" style={{ "--accent": seat ? seatColor(seat.id) : "#fff" } as React.CSSProperties}>
         {seat && state && (
@@ -147,13 +147,26 @@ export function AnswerPanel({
 
 /* -------------------------------------------------------------------- deliberation */
 
-export function Deliberation({ active }: { active: boolean }) {
+/**
+ * The narration for a waiting phase.
+ *
+ * `answering` is the longest wait in the product and used to carry no copy at all, while
+ * the shorter stage that follows it had the best line in the build. Both go through here
+ * now, so the reassurance lands where the waiting actually happens.
+ */
+export function Stage({
+  active, title, detail,
+}: {
+  active: boolean;
+  title: string;
+  detail: string;
+}) {
   return (
-    <div className={`deliberation ${active ? "is-open" : ""}`} aria-hidden={!active}>
-      <p className="deliberation__title">The council deliberates</p>
-      <p className="deliberation__sub">
-        Each member is reading the others' answers — with every name removed.
-      </p>
+    <div className={`deliberation ${active ? "is-open" : ""}`} inert={!active}>
+      {/* A heading, not a paragraph dressed as one: it is the only text on screen and it
+          names the stage. */}
+      <h2 className="deliberation__title">{title}</h2>
+      <p className="deliberation__sub">{detail}</p>
     </div>
   );
 }
@@ -172,7 +185,7 @@ export function RankingPanel({
   const top = ranking[0]?.score ?? 1;
 
   return (
-    <div className={`ranking ${open ? "is-open" : ""}`} aria-hidden={!open}>
+    <div className={`ranking ${open ? "is-open" : ""}`} inert={!open}>
       <h2 className="ranking__title">How the council judged each other</h2>
       <ol className="ranking__list">
         {ranking.map((row, i) => (
@@ -189,7 +202,7 @@ export function RankingPanel({
         ))}
       </ol>
       <button className="btn btn--primary btn--wide" onClick={onContinue}>
-        Hear the verdict
+        See where they stood
       </button>
     </div>
   );
@@ -198,27 +211,54 @@ export function RankingPanel({
 /* ------------------------------------------------------------------------- verdict */
 
 export function Verdict({
-  open, text, streaming, onNext, children,
+  open, text, question, streaming, onNext, onBack, children,
 }: {
   open: boolean;
   text: string;
+  question: string;
   streaming: boolean;
   onNext: () => void;
+  onBack: () => void;
   children?: React.ReactNode;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(question ? `Q: ${question}\n\n${text}` : text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access can be refused; the button simply does not confirm.
+    }
+  };
+
   return (
-    <div className={`verdict ${open ? "is-open" : ""}`} aria-hidden={!open}>
+    <div className={`verdict ${open ? "is-open" : ""}`} inert={!open}>
       <div className="verdict__panel">
-        <h2 className="verdict__title">The Chairman's verdict</h2>
+        <div className="verdict__head">
+          <h2 className="verdict__title">The Chairman's verdict</h2>
+          <button className="btn btn--quiet" onClick={copy}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        {/* The question was previously gone the moment it was submitted, so the verdict
+            had to be judged against something the reader could no longer see. */}
+        {question && <p className="verdict__question">{question}</p>}
         <div className="verdict__body">
           <Prose text={text} />
           {streaming && <span className="caret" />}
         </div>
         {children}
       </div>
-      <button className="btn btn--next" onClick={onNext}>
-        Next question →
-      </button>
+      <div className="verdict__actions">
+        <button className="btn btn--quiet" onClick={onBack}>
+          ← Where they stood
+        </button>
+        <button className="btn btn--next" onClick={onNext}>
+          Next question
+        </button>
+      </div>
     </div>
   );
 }
@@ -304,8 +344,14 @@ export function Tabulate({
   };
   const labelFor = (id: string) => seats.find((s) => s.id === id)?.label ?? id;
 
+  // The subtitle claims ranked order, so deliver it. Anything the ranking never saw
+  // sorts to the end rather than to the front.
+  const ordered = [...positions].sort(
+    (a, b) => (rankOf(a.seat) ?? 99) - (rankOf(b.seat) ?? 99),
+  );
+
   return (
-    <div className={`tabulate ${open ? "is-open" : ""}`} aria-hidden={!open}>
+    <div className={`tabulate ${open ? "is-open" : ""}`} inert={!open}>
       <div className="tabulate__panel">
         <header className="tabulate__head">
           <h2>Where the council stood</h2>
@@ -313,7 +359,7 @@ export function Tabulate({
         </header>
 
         <ul className="tabulate__list">
-          {positions.map((position, i) => (
+          {ordered.map((position, i) => (
             <li
               key={position.label}
               style={{
@@ -392,7 +438,7 @@ export function DissentPanel({
         </button>
       )}
 
-      <div className={`dissent ${open ? "is-open" : ""}`} aria-hidden={!open}>
+      <div className={`dissent ${open ? "is-open" : ""}`} inert={!open}>
         <div
           className="dissent__panel"
           style={{ "--accent": seatColor(seat.id) } as React.CSSProperties}

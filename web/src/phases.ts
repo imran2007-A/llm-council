@@ -56,6 +56,15 @@ export const formation = {
 /** How long the deliberation beat holds, even if the data lands sooner. */
 export const DELIBERATION_MIN_MS = 2200;
 
+/**
+ * How long the camera has the Chairman to itself before the verdict panel arrives.
+ *
+ * The push-in was written as the one moment the room has a single speaker, and then
+ * covered instantly by an 86% scrim -- the payoff existed in code and was never visible.
+ * A beat of held frame costs a second and buys the whole move back.
+ */
+export const VERDICT_HOLD_MS = 1100;
+
 /** Whether the user has asked not to be animated at. Respected everywhere. */
 export function prefersReducedMotion(): boolean {
   return (

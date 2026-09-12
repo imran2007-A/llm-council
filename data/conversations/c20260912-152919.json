@@ -1,0 +1,14 @@
+{
+  "id": "c20260912-152919",
+  "created": 1789207161.5263145,
+  "turns": [
+    {
+      "run_id": "20260912-152919",
+      "question": "Should a small team adopt a monorepo?",
+      "verdict": "This is a dry-run verdict. No models were called.\n\nThe council broadly agreed, with one dissent worth noting, and the reasoning below is\nplaceholder text standing in for a real synthesis.",
+      "ts": 1789207161.5263174
+    }
+  ],
+  "title": "Should a small team adopt a monorepo?",
+  "updated": 1789207161.5263186
+}
