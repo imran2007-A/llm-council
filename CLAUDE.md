@@ -3,12 +3,6 @@
 Notes for a session picking this project up cold. Structure, history, and tests are readable
 from the repo; this file is for what they *don't* say.
 
-> **Stale file warning.** `C:\Users\user\Downloads\CLAUDE.md` (the parent folder, one level up)
-> describes a completely different, older project — `backend/` + `frontend/`, OpenRouter-only,
-> port 8001, models like `openai/gpt-5.1`. **None of it applies here.** It gets loaded as project
-> instructions when the session's working directory is `Downloads`. Ignore it; this file is the
-> one that matches the code. It should be deleted or moved.
-
 ## What this is
 
 One question goes to four LLMs. They answer independently, then anonymously review and rank
@@ -178,3 +172,4 @@ are unverified in motion — only the user can close that.
   saved transcripts at zero API cost.
 - `.impeccable/critique/` holds a persisted critique snapshot that `/impeccable polish` reads as
   its backlog.
+- Remote: `github.com/imran2007-A/llm-council` (private). `gh` CLI is installed and authenticated.
