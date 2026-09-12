@@ -162,7 +162,12 @@
 
 .tabulate__panel {
   width: min(880px, 100%);
-  transition: width var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+  /* Width is NOT animated. It was, to make expanding feel smooth, and animating width is
+     a layout property: every frame re-runs layout for the panel and every column inside
+     it, on a page that is simultaneously rendering a 3D room. The panel resizes at once
+     and the answers fade in instead -- the movement people actually read is the content
+     arriving, not the box growing. */
+  transition: transform var(--dur-slow) var(--ease-out);
   max-height: 84vh;
   overflow-y: auto;
   padding: 2.2rem 2.4rem;
@@ -272,6 +277,7 @@
 /* Expanded: the same lanes, carrying the whole answer. Each scrolls on its own so one
    long reply cannot push the others off the bottom of the panel. */
 .tabulate__full {
+  animation: fade-up var(--dur-normal) var(--ease-out) both;
   margin-top: 0.9rem;
   padding-top: 0.9rem;
   border-top: 1px solid var(--line);
