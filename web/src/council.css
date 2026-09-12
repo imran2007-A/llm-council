@@ -23,7 +23,7 @@
 @media (hover: hover) and (pointer: fine) {
   .emblem[data-hovered] { transform: scale(1.14); }
 }
-.emblem[data-interactive]:active { transform: scale(1.04); }
+.emblem[data-interactive]:active { transform: scale(0.96); }
 
 .emblem__mark {
   width: 22px;
@@ -212,9 +212,9 @@
 .conflict { margin-top: 1.8rem; }
 .conflict h3 {
   margin: 0 0 0.7rem;
-  font-size: 0.66rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
   color: var(--bad);
 }
 .conflict ul { list-style: none; margin: 0; padding: 0; }
@@ -247,9 +247,7 @@
 .followups { margin-top: 1.8rem; }
 .followups__label {
   margin: 0 0 0.7rem;
-  font-size: 0.62rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
   color: var(--ink-faint);
 }
 .followups__row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -270,7 +268,9 @@
   animation: fade-up 400ms var(--ease-out) forwards;
   animation-delay: var(--delay);
 }
-.followups__chip:hover { color: var(--ink); border-color: var(--brass); }
+@media (hover: hover) and (pointer: fine) {
+  .followups__chip:hover { color: var(--ink); border-color: var(--brass); }
+}
 .followups__chip:active { transform: scale(0.975); }
 
 /* ======================================================================== dissent */
@@ -291,17 +291,17 @@
   cursor: pointer;
   transition: transform 160ms var(--ease-out), border-color 200ms, color 200ms;
 }
-.dissent__invite:hover {
-  color: var(--ink);
-  border-color: var(--brass);
-  border-style: solid;
+@media (hover: hover) and (pointer: fine) {
+  .dissent__invite:hover {
+    color: var(--ink);
+    border-color: var(--brass);
+    border-style: solid;
+  }
 }
 .dissent__invite:active { transform: scale(0.975); }
 .dissent__cost {
   color: var(--ink-faint);
-  font-size: 0.66rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.74rem;
 }
 .dissent__emblem {
   width: 16px;
@@ -329,8 +329,12 @@
   overflow: hidden;
   min-height: 0;
   padding: 0 1.2rem;
-  border-left: 2px solid var(--accent);
-  background: rgba(255, 255, 255, 0.014);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      transparent 60%);
 }
 .dissent.is-open .dissent__panel { padding: 1.2rem; }
 .dissent__panel header {
@@ -348,9 +352,7 @@
 }
 .dissent__eyebrow {
   margin: 0;
-  font-size: 0.6rem;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
+  font-size: 0.78rem;
   color: var(--ink-faint);
 }
 .dissent__panel header .btn--icon { margin-left: auto; }

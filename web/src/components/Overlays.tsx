@@ -164,7 +164,9 @@ export function RankingPanel({
             <span className="ranking__pos">{i + 1}</span>
             <span className="ranking__name">{labelFor(row.seat)}</span>
             <span className="ranking__bar">
-              <i style={{ width: `${top ? (row.score / top) * 100 : 0}%` }} />
+              {/* scaleX rather than width: width is a layout property and animating it
+                  costs layout, paint and composite on every frame. */}
+              <i style={{ transform: `scaleX(${top ? row.score / top : 0})` }} />
             </span>
             <span className="ranking__score">{row.score}</span>
           </li>

@@ -14,13 +14,16 @@
   --amber: #ffc470;
   --ink: #f2e9dc;
   --ink-muted: #a99883;
-  --ink-faint: #6b5d4d;
+  /* 5.07:1 on --surface. Was #6b5d4d at 2.86:1, which failed even the 3:1
+     large-text floor while being used for real body copy. */
+  --ink-faint: #97846e;
   --bad: #cf6b5a;
   --line: #2e2419;
 
   --font-display: 'Cormorant Garamond', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   color-scheme: dark;
@@ -29,6 +32,9 @@
 * { box-sizing: border-box; }
 
 html, body, #root { height: 100%; }
+
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
 
 body {
   margin: 0;
@@ -80,9 +86,9 @@ canvas { display: block; }
   left: 0; right: 0; bottom: 8%;
   text-align: center;
   color: var(--ink-faint);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  font-size: 0.68rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
   pointer-events: none;
   animation: fade-up 800ms var(--ease-out) both;
 }
@@ -101,9 +107,14 @@ canvas { display: block; }
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
-  transition: all 220ms var(--ease-out);
+  transition: color 200ms var(--ease-out), border-color 200ms var(--ease-out),
+              background-color 200ms var(--ease-out), transform 160ms var(--ease-out),
+              opacity 200ms var(--ease-out);
 }
 .btn:hover:not(:disabled) { color: var(--ink); border-color: var(--brass); }
+/* Press feedback. Without it a button gives nothing back on the way down, which is the
+   single cheapest way to make an interface feel unresponsive. */
+.btn:not(:disabled):active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .btn--primary {
@@ -169,9 +180,8 @@ canvas { display: block; }
 
 .ask__eyebrow {
   margin: 0 0 0.9rem;
-  font-size: 0.66rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
   color: var(--brass);
 }
 .ask__input {
@@ -198,76 +208,6 @@ canvas { display: block; }
   color: var(--ink-faint);
   text-align: right;
 }
-
-/* ------------------------------------------------------- seat previews (in 3D) */
-
-.seat-preview {
-  width: 230px;
-  text-align: left;
-  padding: 0.7rem 0.85rem;
-  border-radius: 12px;
-  background: rgba(18, 14, 10, 0.82);
-  border: 1px solid var(--line);
-  border-top: 2px solid var(--accent);
-  color: var(--ink-muted);
-  font-family: var(--font-body);
-  font-size: 0.72rem;
-  line-height: 1.45;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  transition: transform 260ms var(--ease-out), border-color 260ms, box-shadow 260ms;
-  animation: preview-in 420ms var(--ease-out) both;
-}
-.seat-preview:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 34px -16px #000, 0 0 22px -12px var(--accent);
-}
-.seat-preview:disabled { cursor: default; opacity: 0.7; }
-.seat-preview[data-status="speaking"] { border-color: var(--accent); }
-.seat-preview[data-status="failed"] { border-top-color: var(--bad); }
-
-@keyframes preview-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
-
-.seat-preview__name {
-  display: block;
-  color: var(--accent);
-  font-size: 0.64rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  margin-bottom: 0.35rem;
-}
-.seat-preview__body {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.seat-preview__more {
-  display: block;
-  margin-top: 0.45rem;
-  color: var(--accent);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-}
-.seat-preview__live {
-  position: absolute;
-  top: 0.6rem; right: 0.6rem;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: blink 1.2s ease-in-out infinite;
-}
-@keyframes blink { 50% { opacity: 0.2; } }
-
-.seat-preview__dots { display: inline-flex; gap: 4px; }
-.seat-preview__dots i {
-  width: 4px; height: 4px; border-radius: 50%;
-  background: var(--accent);
-  animation: bounce 1.2s ease-in-out infinite;
-}
-.seat-preview__dots i:nth-child(2) { animation-delay: 0.15s; }
-.seat-preview__dots i:nth-child(3) { animation-delay: 0.3s; }
-@keyframes bounce { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
 
 /* ------------------------------------------------------------- full answer sheet */
 
@@ -378,7 +318,8 @@ canvas { display: block; }
   display: block; height: 100%;
   background: var(--accent);
   border-radius: 2px;
-  transition: width 700ms var(--ease-out);
+  transform-origin: left center;
+  transition: transform 520ms var(--ease-out);
 }
 .ranking__score { text-align: right; color: var(--ink-faint); font-size: 0.78rem; }
 
@@ -445,7 +386,11 @@ canvas { display: block; }
 }
 .sheet__body h2, .verdict__body h2 { font-size: 1.35rem; }
 .sheet__body h3, .verdict__body h3 { font-size: 1.15rem; }
-.sheet__body p, .verdict__body p { margin: 0 0 1rem; color: var(--ink); }
+.sheet__body p, .verdict__body p {
+  margin: 0 0 1rem;
+  color: var(--ink);
+  max-width: 68ch;
+}
 .sheet__body ul, .sheet__body ol,
 .verdict__body ul, .verdict__body ol { margin: 0 0 1rem; padding-left: 1.2rem; }
 .sheet__body li, .verdict__body li { margin-bottom: 0.4rem; }
@@ -475,12 +420,29 @@ canvas { display: block; }
 /* ------------------------------------------------------------ reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
+  /* Keep opacity and colour, drop movement. Transitions that aid comprehension stay;
+     they are just shorter. */
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 120ms !important;
+    animation-duration: 200ms !important;
+  }
+  /* Nothing translates, scales or rotates on entry. */
+  .titlecard, .ask__panel, .tabulate__panel, .verdict__panel, .sheet__panel,
+  .ranking, .followups__chip, .tabulate__list li, .conflict li,
+  .emblem, .emblem__label {
+    transform: none !important;
+    animation-name: reduced-fade !important;
+  }
+  .ranking__bar i { transition: none !important; transform: scaleX(1) !important; }
+
+  /* The two exceptions are status, not decoration: a seat that is still working must
+     still look like it is working, so the spinner and pulse keep running. */
+  .emblem__arc, .emblem__pulse, .caret, .ellipsis::after {
+    animation-duration: inherit !important;
   }
 }
+
+@keyframes reduced-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ------------------------------------------------------------------ brand marks */
 
