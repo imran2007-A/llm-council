@@ -58,10 +58,27 @@ const SAMPLE_MS = 900;
  * load happens behind another window.
  */
 const MIN_FRAMES = 6;
+/** Consecutive samples before the tier moves. Down quickly, up cautiously. */
+const DECLINE_SAMPLES = 2;
+const INCLINE_SAMPLES = 4;
 /** Above this, the frame did not happen: it was throttled, paused, or the tab was away. */
 const IMPLAUSIBLE_MS = 250;
 
 export const PERF_ENABLED = new URLSearchParams(window.location.search).has("perf");
+
+/**
+ * "ANGLE (Intel, Intel(R) UHD Graphics (0x00009BC4) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+ * -> "Intel(R) UHD Graphics".
+ *
+ * Splitting on the first comma gives the vendor, not the chip, and a chip name of its own
+ * contains both commas and brackets -- the first attempt at this printed "Intel(R", which
+ * is worse than printing nothing.
+ */
+export function shortGPU(raw: string): string {
+  const inner = raw.replace(/^ANGLE \(/, "").replace(/\)$/, "");
+  const device = inner.split(", ")[1] ?? inner;
+  return device.replace(/\s*\(0x[0-9A-Fa-f]+\).*$/, "").trim() || raw;
+}
 
 /**
  * Samples frame time and moves the tier.
@@ -81,10 +98,21 @@ export function QualityGovernor({
   const frames = useRef(0);
   const elapsed = useRef(0);
   const visible = useRef(!document.hidden);
-  // A tier that has already failed is not tried again. Without this the governor climbs
-  // back up the moment the scene goes quiet, drops on the next busy frame, and the user
-  // watches the resolution breathe.
-  const floor = useRef(0);
+  /**
+   * Hysteresis by consecutive samples, not a permanent floor.
+   *
+   * The first version pinned a tier the moment it failed once and never tried higher
+   * again. That is wrong whenever the bad sample was not the GPU's fault -- a browser
+   * throttling an occluded window to 10fps, a one-off stall while a model's answer lands,
+   * a background tab compiling shaders. The room would drop to its lowest setting and
+   * stay there for the rest of the session on hardware that could run it at full quality.
+   *
+   * Two bad samples in a row to step down; four good ones in a row to step back up. Wide
+   * enough apart that the tier cannot oscillate, forgiving enough that a transient stall
+   * is not a life sentence.
+   */
+  const badRun = useRef(0);
+  const goodRun = useRef(0);
 
   useEffect(() => { setDpr(TIERS[tier].dpr); }, [tier, setDpr]);
 
@@ -114,6 +142,18 @@ export function QualityGovernor({
   useEffect(() => {
     if (!PERF_ENABLED) return;
     (window as unknown as { __councilGL?: unknown }).__councilGL = gl;
+
+    // Which GPU actually answered. powerPreference is a request, and on a hybrid laptop
+    // it is routinely ignored -- so the readout names the chip rather than assuming the
+    // fast one won. A frame rate is meaningless without knowing what drew it.
+    try {
+      const ctx = gl.getContext();
+      const dbg = ctx.getExtension("WEBGL_debug_renderer_info");
+      const name = dbg
+        ? String(ctx.getParameter(dbg.UNMASKED_RENDERER_WEBGL))
+        : "unknown GPU";
+      (window as unknown as { __councilGPU?: string }).__councilGPU = shortGPU(name);
+    } catch { /* diagnostics never break the scene */ }
   }, [gl]);
 
   useFrame((_, delta) => {
@@ -144,10 +184,22 @@ export function QualityGovernor({
       };
     }
 
-    if (avg > DECLINE_MS && tier < TIERS.length - 1) {
-      floor.current = tier + 1;
+    if (avg > DECLINE_MS) {
+      badRun.current += 1;
+      goodRun.current = 0;
+    } else if (avg < INCLINE_MS) {
+      goodRun.current += 1;
+      badRun.current = 0;
+    } else {
+      badRun.current = 0;
+      goodRun.current = 0;
+    }
+
+    if (badRun.current >= DECLINE_SAMPLES && tier < TIERS.length - 1) {
+      badRun.current = 0;
       onTier(tier + 1);
-    } else if (avg < INCLINE_MS && tier > floor.current) {
+    } else if (goodRun.current >= INCLINE_SAMPLES && tier > 0) {
+      goodRun.current = 0;
       onTier(tier - 1);
     }
   });
@@ -175,9 +227,11 @@ export function PerfReadout() {
     const id = setInterval(() => {
       const p = (window as unknown as { __councilPerf?: Record<string, unknown> }).__councilPerf;
       if (p) {
+        const gpu = (window as unknown as { __councilGPU?: string }).__councilGPU;
         setText(
           `${p.fps} fps · ${p.frameMs}ms · ${p.tier} @${p.dpr}x · ` +
-          `${p.calls} calls · ${p.triangles} tris · ${p.programs} programs`,
+          `${p.calls} calls · ${p.programs} programs` +
+          (gpu ? ` · ${gpu}` : ""),
         );
       }
     }, 500);

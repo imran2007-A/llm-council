@@ -447,7 +447,16 @@ export function CouncilScene(props: Props) {
         /* antialias:false because the post-processing composer renders into its own
            target and resolves its own multisampling -- the canvas's MSAA buffer was
            allocated, paid for every frame, and then never used. */
-        gl={{ antialias: false, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 0.86 }}
+        /* powerPreference asks a hybrid laptop for the discrete GPU. Without it Chromium
+           hands WebGL to the integrated chip -- this machine has a GTX 1650 Ti and was
+           rendering the whole room on Intel UHD, which is most of why it was slow. It is
+           a request, not a guarantee: the readout reports which GPU actually answered. */
+        gl={{
+          antialias: false,
+          powerPreference: "high-performance",
+          toneMapping: ACESFilmicToneMapping,
+          toneMappingExposure: 0.86,
+        }}
       >
         <SceneContents {...props} />
       </Canvas>
