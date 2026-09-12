@@ -224,7 +224,7 @@ export default function App() {
       <Stage
         active={phase === "deliberating"}
         title="The council deliberates"
-        detail="Each member is reading the others' answers — with every name removed."
+        detail="Each member is reading the others' answers, with every name removed."
       />
 
       <RankingPanel

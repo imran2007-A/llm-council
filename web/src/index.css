@@ -100,7 +100,7 @@ textarea, input { caret-color: var(--brass-light); }
 .splash {
   position: absolute;
   inset: 0;
-  z-index: 60;
+  z-index: var(--layer-splash);
   display: grid;
   place-content: center;
   justify-items: center;
@@ -117,7 +117,7 @@ textarea, input { caret-color: var(--brass-light); }
   aspect-ratio: 1;
   margin-bottom: 1.4rem;
   /* The mark and its highlight collapse together into the point the room grows from. */
-  animation: splash-collapse 560ms cubic-bezier(0.7, 0, 0.84, 0) var(--splash-out-at) both;
+  animation: splash-collapse var(--dur-slow) cubic-bezier(0.7, 0, 0.84, 0) var(--splash-out-at) both;
 }
 
 .splash__mark,
@@ -213,7 +213,7 @@ textarea, input { caret-color: var(--brass-light); }
 .splash__tag { animation-name: splash-rise, splash-fade-out; }
 .splash__word,
 .splash__tag {
-  animation-duration: 900ms, 420ms;
+  animation-duration: 900ms, var(--dur-slow);
   animation-delay: 260ms, var(--splash-out-at);
   animation-timing-function: var(--ease-out), ease-in;
 }
@@ -252,7 +252,7 @@ textarea, input { caret-color: var(--brass-light); }
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
-  transition: color 200ms var(--ease-out), border-color 200ms var(--ease-out),
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
               background-color 200ms var(--ease-out), transform 160ms var(--ease-out),
               opacity 200ms var(--ease-out);
 }
@@ -292,7 +292,7 @@ textarea, input { caret-color: var(--brass-light); }
   position: absolute;
   right: 1.6rem;
   bottom: 1.6rem;
-  z-index: 30;
+  z-index: var(--layer-stage);
 }
 
 /* -------------------------------------------------------------------- ask box */
@@ -306,9 +306,9 @@ textarea, input { caret-color: var(--brass-light); }
   backdrop-filter: blur(0px);
   pointer-events: none;
   opacity: 0;
-  transition: opacity 320ms var(--ease-out), backdrop-filter 420ms var(--ease-out),
+  transition: opacity var(--dur-normal) var(--ease-out), backdrop-filter var(--dur-slow) var(--ease-out),
               background 420ms var(--ease-out);
-  z-index: 40;
+  z-index: var(--layer-panel);
 }
 .ask.is-open {
   opacity: 1;
@@ -326,7 +326,7 @@ textarea, input { caret-color: var(--brass-light); }
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transform: translateY(18px) scale(0.97);
   opacity: 0;
-  transition: transform 420ms var(--ease-settle), opacity 320ms var(--ease-out);
+  transition: transform var(--dur-slow) var(--ease-settle), opacity var(--dur-normal) var(--ease-out);
 }
 .ask.is-open .ask__panel { transform: none; opacity: 1; }
 
@@ -348,7 +348,7 @@ textarea, input { caret-color: var(--brass-light); }
   padding: 0 0 0.8rem;
   resize: none;
   outline: none;
-  transition: border-color 220ms var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 .ask__input::placeholder { color: var(--ink-faint); }
 .ask__input:focus { border-bottom-color: var(--brass); }
@@ -367,7 +367,7 @@ textarea, input { caret-color: var(--brass-light); }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 50;
+  z-index: var(--layer-sheet);
   /* Clipped only while the drawer is parked off-canvas: closed, it must not extend the
      document and hand a phone a sideways scroll. Open, nothing is cut off. */
   overflow: hidden;
@@ -376,7 +376,7 @@ textarea, input { caret-color: var(--brass-light); }
 .sheet__scrim {
   position: absolute; inset: 0;
   background: rgba(10, 8, 6, 0);
-  transition: background 320ms var(--ease-out);
+  transition: background var(--dur-normal) var(--ease-out);
 }
 .sheet.is-open { pointer-events: auto; }
 .sheet.is-open .sheet__scrim { background: rgba(10, 8, 6, 0.74); backdrop-filter: blur(5px); }
@@ -389,7 +389,7 @@ textarea, input { caret-color: var(--brass-light); }
   border-left: 1px solid var(--line);
   box-shadow: -30px 0 80px -30px #000;
   transform: translateX(100%);
-  transition: transform 460ms var(--ease-out);
+  transition: transform var(--dur-slow) var(--ease-out);
   display: flex;
   flex-direction: column;
 }
@@ -423,8 +423,8 @@ textarea, input { caret-color: var(--brass-light); }
   pointer-events: none;
   opacity: 0;
   transform: translateY(12px);
-  transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out);
-  z-index: 20;
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+  z-index: var(--layer-scene-overlay);
 }
 .deliberation.is-open { opacity: 1; transform: none; }
 .deliberation__title {
@@ -457,8 +457,8 @@ textarea, input { caret-color: var(--brass-light); }
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 420ms var(--ease-out), transform 520ms var(--ease-settle);
-  z-index: 35;
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-settle);
+  z-index: var(--layer-stage);
 }
 .ranking.is-open { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 
@@ -476,10 +476,16 @@ textarea, input { caret-color: var(--brass-light); }
   gap: 0.8rem;
   font-size: 0.85rem;
   opacity: 0;
-  animation: fade-up 420ms var(--ease-out) forwards;
+  animation: fade-up var(--dur-slow) var(--ease-out) forwards;
   animation-delay: var(--delay);
 }
-.ranking__pos { color: var(--ink-faint); font-size: 0.75rem; }
+.ranking__pos {
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+  /* Tabular figures: these are a column of numbers, and proportional digits make the
+     column edge wander as the ranking changes. */
+  font-variant-numeric: tabular-nums;
+}
 .ranking__name { color: var(--ink); }
 .ranking__bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .ranking__bar i {
@@ -487,9 +493,14 @@ textarea, input { caret-color: var(--brass-light); }
   background: var(--accent);
   border-radius: 2px;
   transform-origin: left center;
-  transition: transform 520ms var(--ease-out);
+  transition: transform var(--dur-slow) var(--ease-out);
 }
-.ranking__score { text-align: right; color: var(--ink-faint); font-size: 0.78rem; }
+.ranking__score {
+  text-align: right;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ----------------------------------------------------------------------- verdict */
 
@@ -502,8 +513,8 @@ textarea, input { caret-color: var(--brass-light); }
   background: rgba(10, 8, 6, 0);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 480ms var(--ease-out), background 600ms var(--ease-out);
-  z-index: 45;
+  transition: opacity var(--dur-slow) var(--ease-out), background var(--dur-slow) var(--ease-out);
+  z-index: var(--layer-panel);
 }
 .verdict.is-open {
   opacity: 1;
@@ -521,7 +532,7 @@ textarea, input { caret-color: var(--brass-light); }
   box-shadow: 0 20px 44px -20px rgba(0, 0, 0, 0.95),
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transform: translateY(24px) scale(0.98);
-  transition: transform 560ms var(--ease-settle);
+  transition: transform var(--dur-slow) var(--ease-settle);
 }
 .verdict.is-open .verdict__panel { transform: none; }
 .verdict__title {
@@ -671,6 +682,8 @@ textarea, input { caret-color: var(--brass-light); }
 }
 
 .error-toast {
+  /* Above every panel: an error the user cannot see is an error that did not happen. */
+  z-index: var(--layer-toast);
   position: absolute;
   left: 50%; top: 2rem;
   transform: translateX(-50%);
@@ -680,7 +693,7 @@ textarea, input { caret-color: var(--brass-light); }
   padding: 0.7rem 1.2rem;
   border-radius: 10px;
   font-size: 0.82rem;
-  z-index: 60;
+  z-index: var(--layer-splash);
 }
 
 /* ------------------------------------------------------------ reduced motion */
@@ -690,7 +703,7 @@ textarea, input { caret-color: var(--brass-light); }
      they are just shorter. */
   *, *::before, *::after {
     transition-duration: 120ms !important;
-    animation-duration: 200ms !important;
+    animation-duration: var(--dur-fast) !important;
   }
   /* Nothing translates, scales or rotates on entry. */
   .splash, .ask__panel, .tabulate__panel, .verdict__panel, .sheet__panel,
@@ -749,7 +762,7 @@ textarea, input { caret-color: var(--brass-light); }
   position: absolute;
   left: 0.75rem;
   top: 0.75rem;
-  z-index: 90;
+  z-index: var(--layer-instrument);
   margin: 0;
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
@@ -759,4 +772,32 @@ textarea, input { caret-color: var(--brass-light); }
   font-size: 0.68rem;
   letter-spacing: 0.02em;
   pointer-events: none;
+}
+
+/* ------------------------------------------------- reduced transparency */
+
+/* Blur is used here to push the room behind a panel out of focus. Someone who has turned
+   transparency down at the OS level has asked for exactly the opposite, usually because
+   the blur makes text harder to read. Every blurred surface gets an opaque fallback, and
+   the scrims get darker to keep the same separation the blur was providing. */
+@media (prefers-reduced-transparency: reduce) {
+  .ask,
+  .ask.is-open,
+  .tabulate,
+  .tabulate.is-open,
+  .verdict,
+  .verdict.is-open,
+  .sheet__scrim,
+  .sheet.is-open .sheet__scrim {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .ask.is-open,
+  .tabulate.is-open,
+  .verdict.is-open { background: rgba(10, 8, 6, 0.94); }
+  .sheet.is-open .sheet__scrim { background: rgba(10, 8, 6, 0.92); }
+  .ask__panel,
+  .tabulate__panel,
+  .verdict__panel,
+  .sheet__panel { background: var(--surface); }
 }

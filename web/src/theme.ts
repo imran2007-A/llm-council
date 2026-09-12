@@ -64,9 +64,12 @@ export const font = {
  * arbitrary duration typed inline at 2am.
  */
 export const motion = {
+  /** Press feedback, hover, anything the hand should feel answer instantly. */
   fast: 180,
+  /** Panels arriving and leaving. */
   normal: 320,
-  slow: 600,
+  /** The big moves: a panel crossing the screen, the camera settling. */
+  slow: 560,
   // Decelerate hard: things arrive quickly then settle. Reads as weight.
   out: "cubic-bezier(0.16, 1, 0.3, 1)",
   inOut: "cubic-bezier(0.77, 0, 0.175, 1)",
@@ -74,6 +77,26 @@ export const motion = {
   // of walnut and brass, and bounce dates an interface faster than almost anything else.
   settle: "cubic-bezier(0.16, 1, 0.3, 1)",
 };
+
+/**
+ * Stacking order, named rather than numbered.
+ *
+ * There were eleven hand-picked z-index values across two stylesheets, and two unrelated
+ * things both sitting at 60 -- which is not a layering system, it is a queue of guesses.
+ * Naming the layers means the question "does this go above the scrim?" has an answer you
+ * can read instead of a number you have to beat.
+ */
+export const layers = {
+  scene: 0,
+  sceneOverlay: 20,   // prompts and hints drawn over the 3D canvas
+  emblem: 25,         // the marks above each seat
+  stage: 30,          // stage narration
+  panel: 40,          // ranking, comparison, verdict
+  sheet: 50,          // the full answer drawer, over a panel
+  splash: 60,         // the opening card, over everything
+  toast: 70,          // errors, which must never be covered
+  instrument: 90,     // the perf readout, which is a tool and sits above the product
+} as const;
 
 /**
  * Injected once at startup so CSS and three.js cannot disagree about a colour.
@@ -101,6 +124,14 @@ export function applyTheme(): void {
   }
   root.style.setProperty("--font-display", font.display);
   root.style.setProperty("--font-body", font.body);
+  for (const [key, value] of Object.entries(layers)) {
+    root.style.setProperty(`--layer-${kebab(key)}`, String(value));
+  }
+  // Durations too. These existed here and were used by nothing: the stylesheets carried
+  // eleven different hand-typed millisecond values instead.
+  root.style.setProperty("--dur-fast", `${motion.fast}ms`);
+  root.style.setProperty("--dur-normal", `${motion.normal}ms`);
+  root.style.setProperty("--dur-slow", `${motion.slow}ms`);
   root.style.setProperty("--ease-out", motion.out);
   root.style.setProperty("--ease-in-out", motion.inOut);
   root.style.setProperty("--ease-settle", motion.settle);
