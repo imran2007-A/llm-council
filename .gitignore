@@ -17,3 +17,9 @@ web/public/models/mixamo/_test-character.*
 
 # impeccable engine binary (downloaded per-machine)
 .github/skills/impeccable/scripts/bin/
+
+# New run transcripts. data/runs and data/cache were already ignored; dry runs fill this
+# directory dozens at a time during interface work. Transcripts committed before this
+# rule stay tracked -- gitignore does not apply to files git already follows, which is
+# what we want: the real-model runs cost API budget to produce and are worth keeping.
+data/conversations/

@@ -9,6 +9,7 @@ import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
 import { AbstractForm, SeatEmblem } from "./Presence";
 import { Mannequin, MannequinHitBox } from "./Mannequin";
+import { PerfReadout, QualityGovernor, useQualityTier } from "./quality";
 import { MixamoAvatar, useMixamoClips } from "./MixamoAvatar";
 import { AVATAR_MODE, HAS_MIXAMO_CLIPS } from "../avatars";
 import { Floor, FormingRing, Table, seatPosition, seatRotation } from "./Table";
@@ -169,7 +170,7 @@ function SeatLamp({
   );
 }
 
-function Lighting({ intensity, dim }: { intensity: number; dim: number }) {
+function Lighting({ intensity, dim, shadowMap }: { intensity: number; dim: number; shadowMap: number }) {
   const ambient = useRef<PointLight>(null);
   return (
     <>
@@ -182,7 +183,7 @@ function Lighting({ intensity, dim }: { intensity: number; dim: number }) {
         color={hex(palette.amber)}
         distance={16}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowMap, shadowMap]}
         shadow-bias={-0.0005}
       />
       <directionalLight
@@ -220,6 +221,33 @@ function SceneContents({
   const total = everyone.length;
   const forming = phase === "forming";
   const [hovered, setHovered] = useState<string | null>(null);
+  const [tier, tierIndex, setTierIndex] = useQualityTier();
+
+  /**
+   * Shadows are re-rendered only while something is actually moving.
+   *
+   * A shadow map is a full render of every caster from the light's point of view. Three
+   * does that on every frame by default, so a room whose furniture has not moved since
+   * the opening sequence was paying for a second scene render, sixty times a second, to
+   * produce an identical image. The room only genuinely changes during formation and when
+   * the camera moves between phases -- the figures' breathing is seven millimetres and
+   * casts no visible difference.
+   */
+  const gl = useThree((s) => s.gl);
+  useEffect(() => { gl.shadowMap.autoUpdate = false; }, [gl]);
+  useEffect(() => {
+    // Redraw for a beat after any change, then stop. A single frame is not enough: the
+    // camera is still easing into place when the phase flips.
+    gl.shadowMap.needsUpdate = true;
+    let raf = 0;
+    const until = performance.now() + (forming ? formation.done : 1400);
+    const keep = () => {
+      gl.shadowMap.needsUpdate = true;
+      if (performance.now() < until) raf = requestAnimationFrame(keep);
+    };
+    raf = requestAnimationFrame(keep);
+    return () => cancelAnimationFrame(raf);
+  }, [gl, phase, forming, tierIndex]);
 
   const at = (start: number, duration: number) =>
     forming ? MathUtils.clamp((elapsed - start) / duration, 0, 1) : 1;
@@ -253,16 +281,22 @@ function SceneContents({
     <>
       <color attach="background" args={[palette.void]} />
       <fog attach="fog" args={[palette.void, 9, 24]} />
-      <Lighting intensity={forming ? at(formation.ring, 900) : 1} dim={dim} />
+      <Lighting intensity={forming ? at(formation.ring, 900) : 1} dim={dim} shadowMap={tier.shadowMap} />
 
       <Floor />
+      {/* Baked, not live. ContactShadows defaults to re-rendering the whole scene into
+          its own target and blurring it every single frame -- a third full pass for a
+          soft patch under furniture that does not move. `frames={1}` renders it once;
+          the key re-bakes it when the room actually changes. */}
       <ContactShadows
+        key={`${phase}-${tierIndex}`}
         position={[0, 0.02, 0]}
         opacity={0.5}
         scale={16}
         blur={2.4}
         far={5}
-        resolution={512}
+        frames={forming ? Infinity : 1}
+        resolution={tier.name === "high" ? 512 : 256}
         color="#000000"
       />
 
@@ -375,14 +409,20 @@ function SceneContents({
       {/* Filmic grade. Tone mapping plus a little bloom does more for "cinematic" than
           any amount of extra geometry; grain and vignette stop dark areas banding on
           cheap panels and hold the eye in the middle of the frame. */}
-      <EffectComposer enableNormalPass={false}>
+      <QualityGovernor tier={tierIndex} onTier={setTierIndex} />
+
+      {/* Always mounted. multisampling defaults to 8 in this library -- eight samples
+          across a full-screen target is the single most expensive default in the scene on
+          integrated graphics -- so the tier turns that down instead of turning the grade
+          off. Unmounting the composer to save frames leaves a black canvas. */}
+      <EffectComposer enableNormalPass={false} multisampling={tier.multisampling}>
         {/* Threshold kept high so only genuinely bright things bloom. At 0.22 the whole
             table glowed and the centre light blew out into a coloured smear. */}
         <Bloom
           intensity={0.42}
           luminanceThreshold={0.62}
           luminanceSmoothing={0.5}
-          kernelSize={KernelSize.LARGE}
+          kernelSize={tier.bloom === "large" ? KernelSize.LARGE : KernelSize.SMALL}
           mipmapBlur
         />
         <Vignette offset={0.22} darkness={0.86} blendFunction={BlendFunction.NORMAL} />
@@ -401,12 +441,17 @@ export function CouncilScene(props: Props) {
     <div className="scene">
       <Canvas
         shadows
-        dpr={[1, 1.75]}
+        /* Starting dpr only. QualityGovernor owns it from the first sample onward. */
+        dpr={1}
         camera={{ position: [0, 11, 13], fov: 40 }}
-        gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 0.86 }}
+        /* antialias:false because the post-processing composer renders into its own
+           target and resolves its own multisampling -- the canvas's MSAA buffer was
+           allocated, paid for every frame, and then never used. */
+        gl={{ antialias: false, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 0.86 }}
       >
         <SceneContents {...props} />
       </Canvas>
+      <PerfReadout />
     </div>
   );
 }

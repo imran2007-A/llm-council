@@ -741,3 +741,22 @@ textarea, input { caret-color: var(--brass-light); }
 /* Masked rather than filtered. A sepia/hue-rotate chain on white artwork lands on a
    muddy brown; masking paints the exact brass from the palette. */
 
+
+/* -------------------------------------------------------------- perf readout */
+
+/* Only rendered with ?perf=1. Deliberately plain: it is an instrument, not a feature. */
+.perf-readout {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 90;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: var(--good);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
