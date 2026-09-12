@@ -1,8 +1,13 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimationMixer, LoopRepeat } from "three";
+import { AnimationMixer, LoopRepeat, Vector3 } from "three";
 import type { AnimationAction, AnimationClip, Group, Mesh, Object3D } from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+// Object3D.clone() copies meshes but leaves every SkinnedMesh bound to the ORIGINAL
+// skeleton, so five seats end up sharing one rig at the world origin. Already fixed once
+// in Avatar.tsx; it has to be done anywhere a rigged model is duplicated.
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { AbstractForm } from "./Presence";
 import { applySeatedPose, findBones } from "./seated";
 import type { SeatState, SeatStatus } from "../types";
@@ -50,19 +55,62 @@ export const CLIP_FILES = ["idle", "talking", "thinking"] as const;
 const cache = new Map<string, Promise<Group | null>>();
 let queue: Promise<unknown> = Promise.resolve();
 
-function loadFbx(url: string): Promise<Group | null> {
-  let pending = cache.get(url);
-  if (!pending) {
-    pending = queue.then(() => new Promise<Group | null>((resolve) => {
+/** Never let one file hold up the rest. */
+const LOAD_TIMEOUT_MS = 20000;
+
+function loadOne(url: string): Promise<Group | null> {
+  return new Promise<Group | null>((resolve) => {
+    // Loads are queued, so a load whose callbacks never fire would stall every file
+    // behind it -- which is precisely how a single bad asset turned into "nothing
+    // loads at all, intermittently". A timeout bounds the damage to one file.
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(null);
+      }
+    }, LOAD_TIMEOUT_MS);
+
+    const done = (group: Group | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(group);
+    };
+    if (url.endsWith(".glb") || url.endsWith(".gltf")) {
+      new GLTFLoader().load(
+        url,
+        (gltf) => {
+          // glTF keeps animations beside the scene rather than on it; move them across so
+          // both formats hand back the same shape.
+          const scene = gltf.scene as unknown as Group;
+          scene.animations = gltf.animations ?? [];
+          done(scene);
+        },
+        undefined,
+        () => done(null),
+      );
+    } else {
       new FBXLoader().load(
         url,
-        (group) => resolve(group as unknown as Group),
+        (group) => done(group as unknown as Group),
         undefined,
         // A missing or unparseable file is an expected outcome here, not an exception.
-        () => resolve(null),
+        () => done(null),
       );
-    }));
-    cache.set(url, pending);
+    }
+  });
+}
+
+/** Load `<base>.glb`, falling back to `<base>.fbx`. */
+function loadCharacterFile(base: string): Promise<Group | null> {
+  let pending = cache.get(base);
+  if (!pending) {
+    pending = queue.then(async () => {
+      const glb = await loadOne(`${base}.glb`);
+      return glb ?? loadOne(`${base}.fbx`);
+    });
+    cache.set(base, pending);
     // Everything queued after this waits for it, successfully or not.
     queue = pending.catch(() => null);
   }
@@ -77,7 +125,7 @@ export function useMixamoClips(enabled: boolean): Record<string, AnimationClip> 
     if (!enabled) return;
     let cancelled = false;
 
-    Promise.all(CLIP_FILES.map((name) => loadFbx(`${MIXAMO_DIR}/anim-${name}.fbx`)))
+    Promise.all(CLIP_FILES.map((name) => loadCharacterFile(`${MIXAMO_DIR}/anim-${name}`)))
       .then((results) => {
         if (cancelled) return;
         const found: Record<string, AnimationClip> = {};
@@ -116,7 +164,7 @@ export function MixamoAvatar(props: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    loadFbx(`${MIXAMO_DIR}/seat-${seatId}.fbx`).then((loaded) => {
+    loadCharacterFile(`${MIXAMO_DIR}/seat-${seatId}`).then((loaded) => {
       if (!cancelled) setSource(loaded);
     });
     return () => { cancelled = true; };
@@ -126,11 +174,15 @@ export function MixamoAvatar(props: Props) {
 
   const model = useMemo(() => {
     if (!source) return null;
-    const copy = source.clone(true);
+    const copy = cloneSkinned(source) as unknown as Group;
 
     if (hasClips) {
-      // Mixamo authors in centimetres, and the clips carry their own posing.
-      copy.scale.setScalar(0.01);
+      // Mixamo FBX is authored in centimetres; a converted glTF is already in metres.
+      // Measuring the head bone tells the two apart without trusting the extension.
+      const bones = findBones(copy);
+      copy.updateWorldMatrix(true, true);
+      const headY = bones.head ? bones.head.getWorldPosition(new Vector3()).y : 0;
+      copy.scale.setScalar(headY > 20 ? 0.01 : 1);
     } else {
       // No motion available, so sit them down by hand. applySeatedPose normalises height
       // from the head bone, which absorbs the centimetre scale on its own.
