@@ -8,17 +8,20 @@
 export type AvatarMode =
   /** Faceted forms built in code. No files, no downloads, works everywhere. */
   | "abstract"
+  /** Neutral mannequins with a glossy faceplate, also built in code. */
+  | "mannequin"
   /** Mixamo characters loaded from web/public/models/mixamo/. */
   | "mixamo";
 
 /**
- * Set to "mixamo" once the character files are in place.
+ * "mannequin" is the shipping body. "abstract" is the earlier faceted form, kept because
+ * it needs no faceplate and reads at any distance; "mixamo" needs character files.
  *
  * A build-time constant rather than a runtime probe on purpose: checking whether the
  * files exist would mean a 404 on every load for anyone who has not added them, and a
  * frame where the chairs are empty.
  */
-export const AVATAR_MODE: AvatarMode = "abstract";
+export const AVATAR_MODE: AvatarMode = "mannequin";
 
 /**
  * Set to true once anim-idle.fbx, anim-talking.fbx or anim-thinking.fbx are present.

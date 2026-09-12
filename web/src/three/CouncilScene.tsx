@@ -8,6 +8,7 @@ import type { PointLight } from "three";
 import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
 import { AbstractForm, SeatEmblem } from "./Presence";
+import { Mannequin } from "./Mannequin";
 import { MixamoAvatar, useMixamoClips } from "./MixamoAvatar";
 import { AVATAR_MODE, HAS_MIXAMO_CLIPS } from "../avatars";
 import { Floor, FormingRing, Table, seatPosition, seatRotation } from "./Table";
@@ -231,7 +232,11 @@ function SceneContents({
     [everyone, total],
   );
 
-  const showEmblems = phase !== "forming" && phase !== "ready" && phase !== "asking";
+  // Emblems hover above every seat at all times once the room exists. They are the only
+  // thing that says who is sitting where, so hiding them until a question is asked left
+  // the table anonymous exactly when someone is deciding whether to ask one. CSS dims
+  // them at rest so five marks do not compete with the light at the centre.
+  const showEmblems = phase !== "forming";
 
   // Loaded once and shared by every seat: Mixamo rigs all use the same bone names, so
   // one set of clips drives the whole council.
@@ -303,6 +308,14 @@ function SceneContents({
                       isChairman={isChairman}
                       hovered={isHovered || delivering}
                       clips={clips}
+                    />
+                  ) : AVATAR_MODE === "mannequin" ? (
+                    <Mannequin
+                      seatId={seat.id}
+                      state={state}
+                      accent={accent}
+                      isChairman={isChairman}
+                      hovered={isHovered || delivering}
                     />
                   ) : (
                     <AbstractForm

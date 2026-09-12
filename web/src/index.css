@@ -134,6 +134,9 @@ textarea, input { caret-color: var(--brass-light); }
 /* -------------------------------------------------------------------- buttons */
 
 .btn {
+  /* Every button label here is two or three words. "Next question" was breaking across
+     two lines inside its pill, which reads as a cramped mistake rather than a control. */
+  white-space: nowrap;
   font-family: var(--font-body);
   font-size: 0.85rem;
   letter-spacing: 0.04em;

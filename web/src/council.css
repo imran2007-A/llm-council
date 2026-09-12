@@ -46,6 +46,15 @@
 .emblem[data-status="failed"] .emblem__mark { background: var(--bad); opacity: 0.6; }
 .emblem[data-hovered] .emblem__mark { opacity: 1; }
 
+/* At rest the whole emblem recedes. Five marks at full strength around a dark table
+   compete with the light at the centre, which is where the eye should start. Hover or
+   activity brings one back up, so attention has somewhere to go. */
+.emblem[data-status="idle"] {
+  opacity: 0.6;
+  transition: opacity 320ms var(--ease-out);
+}
+.emblem[data-status="idle"][data-hovered] { opacity: 1; }
+
 /* The ring carries the state. It sweeps while the model works and closes when the answer
    lands, so progress is legible across the room with no text at all. */
 .emblem__ring {
