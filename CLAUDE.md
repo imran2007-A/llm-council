@@ -21,14 +21,30 @@ a walnut table, a seat per model, emblems hovering above each.
 
 ## Running it
 
-Backend (FastAPI, serves the built frontend too):
+Backend (FastAPI, serves the built frontend too). Use the venv's Python -- the
+dependencies are not on the system interpreter, and `python run_tests.py` fails with
+`ModuleNotFoundError: dotenv` if you forget:
 
 ```bash
-uvicorn server:app --reload
+./.venv/Scripts/python.exe -m uvicorn server:app --port 8000
 ```
 
-**Always pass `--reload`.** A stale uvicorn process once cost several rounds of debugging
-"broken" data that was actually a server running code from before the change.
+**Do not rely on `--reload` on this machine.** It logs `WatchFiles detected changes...
+Reloading...` and then keeps serving the old code: the reloader spawns its worker through
+multiprocessing, the old worker is orphaned rather than replaced, and it survives even a
+kill of the parent. This has now cost two separate debugging sessions -- the first spent
+chasing "broken" tabulate data, the second convinced a dry-run fixture edit had not taken
+effect when the file, the import and an in-process run of the same function all proved it
+had.
+
+**After any change under `council/` or to `server.py`, restart the server explicitly**,
+and confirm the port is actually free before starting the new one:
+
+```bash
+powershell "Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue"
+```
+
+The frontend does not have this problem: Vite's HMR is reliable here.
 
 Frontend dev server, Vite on **5173** (CORS in `server.py` allows exactly this origin):
 

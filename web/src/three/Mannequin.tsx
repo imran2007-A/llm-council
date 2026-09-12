@@ -151,7 +151,10 @@ export function Mannequin({ seatId, state, accent, isChairman, hovered }: Props)
   const body = hex(palette.ink);
 
   return (
-    <group ref={root} scale={scale}>
+    // Local -Z is "toward the table": the chair model is turned by PI to face the centre,
+    // so a figure built facing +Z sits with its back to the room. Every seat was facing
+    // outward into the dark.
+    <group ref={root} scale={scale} rotation={[0, Math.PI, 0]}>
       <group ref={chest}>
         {/* Pelvis, sunk into the seat */}
         <mesh position={[0, 0.5, 0.02]} castShadow>

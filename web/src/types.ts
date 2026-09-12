@@ -29,8 +29,16 @@ export interface RankingRow {
 export interface SeatState {
   id: string;
   status: SeatStatus;
-  /** Text streamed so far for the current stage. */
+  /** Text for the CURRENT stage. Cleared when the next stage starts. */
   text: string;
+  /**
+   * The seat's stage-1 answer, kept for the whole run.
+   *
+   * `text` is reused stage by stage, so by the time the comparison is on screen it holds
+   * the seat's peer review, not its answer -- which is what "expand answers" was showing.
+   * This keeps the thing the user actually asked for.
+   */
+  answer: string;
   error: string | null;
   /** Set when a fallback model answered instead of the configured one. */
   modelUsed: string | null;

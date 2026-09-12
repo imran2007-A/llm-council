@@ -26,19 +26,14 @@
 
   .ask__input { font-size: 1.15rem; }
 
-  /* Three columns of emblem / name / position do not fit. Stack the name above what it
-     said, and let the emblem sit inline with the name. */
-  .tabulate__list li {
-    grid-template-columns: 20px 1fr;
-    grid-template-areas:
-      "emblem who"
-      ". said";
-    gap: 0.4rem 0.7rem;
-    padding: 0.9rem 0;
-  }
-  .tabulate__emblem { grid-area: emblem; }
-  .tabulate__who { grid-area: who; }
-  .tabulate__said { grid-area: said; font-size: 0.85rem; }
+  /* Side by side stops being a comparison at 375px -- four 90px lanes are unreadable.
+     One column per screen-width, so the columns become sections you scroll through. */
+  .tabulate__grid { grid-template-columns: 1fr; gap: 0; }
+  .tabulate__said { font-size: 0.85rem; }
+  .tabulate__full { max-height: none; }
+
+  .tabulate__head { flex-direction: column; gap: 0.9rem; }
+  .tabulate__toggle { align-self: stretch; }
 
   .tabulate__head h2 { font-size: 1.35rem; }
   .verdict__panel { max-height: 78vh; }
@@ -80,12 +75,11 @@
     margin-top: 1rem;
   }
 
-  .titlecard { inset: auto 0 18% 0; }
   .prompt-hint { bottom: 11%; }
 }
 
 /* Short landscape phones: the scene needs the height more than the chrome does. */
 @media (max-height: 520px) {
-  .titlecard__mark { display: none; }
-  .titlecard h1 { font-size: 2rem; }
+  .splash__stage { margin-bottom: 0.8rem; width: clamp(64px, 16vw, 90px); }
+  .splash__word { font-size: 1.9rem; }
 }

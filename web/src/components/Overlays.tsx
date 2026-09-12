@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type {
   Dissent as DissentData, Position, RankingRow, SeatConfig, SeatState,
 } from "../types";
@@ -136,7 +138,7 @@ export function AnswerPanel({
             <div className="sheet__body">
               {state.error
                 ? <p className="sheet__error">{state.error}</p>
-                : <Prose text={state.text} />}
+                : <Prose text={state.answer || state.text} />}
             </div>
           </>
         )}
@@ -268,76 +270,73 @@ export function Verdict({
 /**
  * Model output rendered as readable prose.
  *
- * Deliberately not a full markdown renderer: these models emit headings, bold and lists,
- * and that is nearly all they emit. Handling those four cases inline avoids a dependency
- * and, more importantly, avoids rendering half-finished markdown mid-stream as literal
- * asterisks.
+ * This was a hand-rolled renderer handling headings, bold, code and flat lists -- which
+ * is most of what models emit, but not all of it. Tables came through as pipe salad,
+ * nested lists flattened, fenced code blocks lost their fencing, and links rendered as
+ * raw bracket syntax. Given the whole point of the verdict panel is reading a long
+ * answer, that was the wrong place to save a dependency.
+ *
+ * remark-gfm is what adds tables, strikethrough and task lists on top of CommonMark --
+ * models reach for all three unprompted.
  */
 export function Prose({ text }: { text: string }) {
   if (!text) return null;
-
   return (
-    <>
-      {text.split(/\n{2,}/).map((block, i) => {
-        const trimmed = block.trim();
-        if (!trimmed) return null;
-
-        const heading = trimmed.match(/^(#{1,4})\s+(.*)$/s);
-        if (heading) {
-          const level = Math.min(4, heading[1].length + 1);
-          const Tag = `h${level}` as "h2" | "h3" | "h4";
-          return <Tag key={i}>{inline(heading[2])}</Tag>;
-        }
-
-        const lines = trimmed.split("\n");
-        const isList = lines.every((l) => /^\s*([-*•]|\d+[.)])\s+/.test(l));
-        if (isList && lines.length > 1) {
-          const ordered = /^\s*\d+[.)]/.test(lines[0]);
-          const items = lines.map((l, j) => (
-            <li key={j}>{inline(l.replace(/^\s*([-*•]|\d+[.)])\s+/, ""))}</li>
-          ));
-          return ordered ? <ol key={i}>{items}</ol> : <ul key={i}>{items}</ul>;
-        }
-
-        return <p key={i}>{inline(trimmed)}</p>;
-      })}
-    </>
+    <div className="prose">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Model output is data, not markup: an <a> here would be a link the council
+          // wrote, not one the user chose. Kept visible and readable, opened safely.
+          a: ({ children, href }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer nofollow">{children}</a>
+          ),
+          // Wide tables scroll inside their own box rather than widening the panel.
+          table: ({ children }) => (
+            <div className="prose__scroll"><table>{children}</table></div>
+          ),
+          pre: ({ children }) => (
+            <div className="prose__scroll"><pre>{children}</pre></div>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
-}
-
-/** Bold and inline code. Unmatched markers are left alone rather than half-applied. */
-function inline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      return <code key={i}>{part.slice(1, -1)}</code>;
-    }
-    return part;
-  });
 }
 
 /* ------------------------------------------------------------------------ tabulate */
 
 /**
- * Every member's position, side by side, in one line each.
+ * Every member's position, side by side.
  *
- * Four full answers cannot be compared by reading them in sequence -- by the time you
- * reach the fourth you have lost the first. One line each, on one screen, is the only
- * arrangement in which the council's spread is actually visible.
+ * This was a stacked list -- one row per model -- which is a ranking, not a comparison.
+ * Reading four positions down a column means holding the first in your head until you
+ * reach the fourth, which is exactly the work the table is supposed to remove. Columns
+ * put them beside each other, where the spread is visible without remembering anything.
+ *
+ * Collapsed, each column is one line: scannable across four at a glance. Expanded, the
+ * same columns carry the full answers, each scrolling independently, so the arrangement
+ * never changes underneath you -- only the depth does.
  */
 export function Tabulate({
-  open, positions, ranking, seats, disagreement, onContinue,
+  open, positions, ranking, seats, answers, disagreement, onContinue,
 }: {
   open: boolean;
   positions: Position[];
   ranking: RankingRow[];
   seats: SeatConfig[];
+  answers: Record<string, SeatState>;
   disagreement: string[];
   onContinue: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Collapse whenever the panel closes, so returning from the verdict does not land on
+  // a wall of text you last opened two questions ago.
+  useEffect(() => { if (!open) setExpanded(false); }, [open]);
+
   const rankOf = (seatId: string) => {
     const index = ranking.findIndex((r) => r.seat === seatId);
     return index < 0 ? null : index + 1;
@@ -350,35 +349,63 @@ export function Tabulate({
     (a, b) => (rankOf(a.seat) ?? 99) - (rankOf(b.seat) ?? 99),
   );
 
+  const anyFullText = ordered.some((p) => answers[p.seat]?.text);
+
   return (
     <div className={`tabulate ${open ? "is-open" : ""}`} inert={!open}>
-      <div className="tabulate__panel">
+      <div className={`tabulate__panel ${expanded ? "is-expanded" : ""}`}>
         <header className="tabulate__head">
-          <h2>Where the council stood</h2>
-          <p>One line each, in the order they were ranked.</p>
+          <div>
+            <h2>Where the council stood</h2>
+            <p>
+              {expanded
+                ? "Every answer in full, in the order they were ranked."
+                : "One line each, in the order they were ranked."}
+            </p>
+          </div>
+          {anyFullText && (
+            <button
+              className="btn btn--ghost tabulate__toggle"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+            >
+              {expanded ? "Collapse answers" : "Expand answers"}
+            </button>
+          )}
         </header>
 
-        <ul className="tabulate__list">
-          {ordered.map((position, i) => (
-            <li
-              key={position.label}
-              style={{
-                "--accent": seatColor(position.seat),
-                "--mark": `url(/brand/emblem-${position.seat}.png)`,
-                "--delay": `${i * 60}ms`,
-              } as React.CSSProperties}
-            >
-              <span className="tabulate__emblem" aria-hidden />
-              <span className="tabulate__who">
-                <strong>{labelFor(position.seat)}</strong>
-                {rankOf(position.seat) && (
-                  <span className="tabulate__rank">#{rankOf(position.seat)}</span>
+        <div className="tabulate__grid" data-count={ordered.length}>
+          {ordered.map((position, i) => {
+            const full = answers[position.seat]?.answer ?? "";
+            return (
+              <article
+                className="tabulate__col"
+                key={position.label}
+                style={{
+                  "--accent": seatColor(position.seat),
+                  "--mark": `url(/brand/emblem-${position.seat}.png)`,
+                  "--delay": `${i * 70}ms`,
+                } as React.CSSProperties}
+              >
+                <header className="tabulate__who">
+                  <span className="tabulate__emblem" aria-hidden />
+                  <strong>{labelFor(position.seat)}</strong>
+                  {rankOf(position.seat) && (
+                    <span className="tabulate__rank">#{rankOf(position.seat)}</span>
+                  )}
+                </header>
+                <p className="tabulate__said">{position.text}</p>
+                {expanded && (
+                  <div className="tabulate__full">
+                    {full
+                      ? <Prose text={full} />
+                      : <p className="tabulate__missing">No answer was recorded.</p>}
+                  </div>
                 )}
-              </span>
-              <span className="tabulate__said">{position.text}</span>
-            </li>
-          ))}
-        </ul>
+              </article>
+            );
+          })}
+        </div>
 
         {disagreement.length > 0 && (
           <section className="conflict">

@@ -91,30 +91,136 @@ textarea, input { caret-color: var(--brass-light); }
 
 /* ---------------------------------------------------------------- title card */
 
-.titlecard {
+/* ---------------------------------------------------------------------- splash */
+
+/* The opening card. Everything here is transform, opacity and filter -- no layout
+   property is animated, so the whole sequence stays on the compositor while the 3D
+   scene is simultaneously building its first frames. */
+
+.splash {
   position: absolute;
-  inset: auto 0 12% 0;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0;
   text-align: center;
   pointer-events: none;
-  opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 900ms var(--ease-out), transform 900ms var(--ease-out);
+  background: var(--void);
+  animation: splash-curtain 620ms var(--ease-out) var(--splash-out-at) both;
 }
-.titlecard.is-open { opacity: 1; transform: none; }
-.titlecard h1 {
+
+.splash__stage {
+  position: relative;
+  width: clamp(84px, 13vw, 140px);
+  aspect-ratio: 1;
+  margin-bottom: 1.4rem;
+  /* The mark and its highlight collapse together into the point the room grows from. */
+  animation: splash-collapse 560ms cubic-bezier(0.7, 0, 0.84, 0) var(--splash-out-at) both;
+}
+
+.splash__mark,
+.splash__sweep {
+  position: absolute;
+  inset: 0;
+  mask-image: url(/brand/logo.png);
+  -webkit-mask-image: url(/brand/logo.png);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+/* The mark itself: struck brass, lit from above. */
+.splash__mark {
+  background: linear-gradient(170deg, var(--brass-light) 0%, var(--brass) 55%, var(--amber-dim) 100%);
+  animation: splash-strike var(--splash-in) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A band of light travelling across the metal. Masked by the same logo, so the highlight
+   exists only on the mark and never as a rectangle floating over black. */
+.splash__sweep {
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.92) 50%,
+    transparent 62%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: splash-sweep 1000ms cubic-bezier(0.33, 0, 0.2, 1) var(--splash-sweep-at) both;
+}
+
+.splash__word {
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 300;
-  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  font-size: clamp(2.2rem, 6vw, 4rem);
   letter-spacing: 0.06em;
-  margin: 0;
   color: var(--ink);
+  animation: splash-rise 900ms var(--ease-out) 260ms both;
 }
-.titlecard p {
-  margin: 0.3rem 0 0;
+
+.splash__tag {
+  margin: 0.5rem 0 0;
   color: var(--brass);
   letter-spacing: 0.34em;
   text-transform: uppercase;
   font-size: 0.68rem;
+  animation: splash-rise 900ms var(--ease-out) 440ms both;
+}
+
+/* Never from scale(0): a mark that grows out of nothing reads as a loading spinner.
+   0.86 with a little blur reads as something arriving from depth. */
+@keyframes splash-strike {
+  from { opacity: 0; transform: scale(0.86); filter: blur(7px) brightness(1.8); }
+  to   { opacity: 1; transform: scale(1); filter: blur(0) brightness(1); }
+}
+
+@keyframes splash-sweep {
+  0%   { opacity: 0; transform: translateX(-115%); }
+  18%  { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(115%); }
+}
+
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Accelerating in, so it reads as being pulled down into the room rather than shrinking
+   politely. It lands as a bright point exactly where the table's lamp appears. */
+@keyframes splash-collapse {
+  from { opacity: 1; transform: scale(1); filter: brightness(1); }
+  70%  { opacity: 1; filter: brightness(2.6); }
+  to   { opacity: 0; transform: scale(0.04); filter: brightness(4); }
+}
+
+/* The black lifts a beat after the mark has gone, so the room is already forming
+   underneath rather than starting once the curtain is clear. */
+@keyframes splash-curtain {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.splash__word,
+.splash__tag { animation-fill-mode: both; }
+.splash__word { animation-name: splash-rise, splash-fade-out; }
+.splash__tag { animation-name: splash-rise, splash-fade-out; }
+.splash__word,
+.splash__tag {
+  animation-duration: 900ms, 420ms;
+  animation-delay: 260ms, var(--splash-out-at);
+  animation-timing-function: var(--ease-out), ease-in;
+}
+.splash__tag { animation-delay: 440ms, var(--splash-out-at); }
+
+@keyframes splash-fade-out {
+  to { opacity: 0; transform: translateY(-10px); }
 }
 
 .prompt-hint {
@@ -437,32 +543,131 @@ textarea, input { caret-color: var(--brass-light); }
 
 /* -------------------------------------------------------------------- prose */
 
-.sheet__body h2, .sheet__body h3, .sheet__body h4,
-.verdict__body h2, .verdict__body h3, .verdict__body h4 {
+/* One owner for model output, wherever it appears -- the answer sheet, the verdict, the
+   dissent reply, the expanded column in the comparison. These rules used to be written
+   twice, scoped to .sheet__body and .verdict__body, so every new surface that showed an
+   answer started out unstyled. */
+
+.prose {
+  color: var(--ink);
+  font-size: 0.96rem;
+  line-height: 1.68;
+}
+
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--brass-light);
-  margin: 1.6rem 0 0.5rem;
-  line-height: 1.3;
+  margin: 1.7rem 0 0.55rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
 }
-.sheet__body h2, .verdict__body h2 { font-size: 1.35rem; }
-.sheet__body h3, .verdict__body h3 { font-size: 1.15rem; }
-.sheet__body p, .verdict__body p {
-  margin: 0 0 1rem;
-  color: var(--ink);
+.prose h1 { font-size: 1.5rem; }
+.prose h2 { font-size: 1.32rem; }
+.prose h3 { font-size: 1.14rem; }
+.prose h4, .prose h5, .prose h6 {
+  font-size: 0.92rem;
+  color: var(--ink-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prose p {
+  /* 68ch keeps the line short enough to read. Without it the verdict panel runs the full
+     width of a desktop window and the eye loses its place returning to the next line. */
+  margin: 0 0 1.05rem;
   max-width: 68ch;
+  text-wrap: pretty;
 }
-.sheet__body ul, .sheet__body ol,
-.verdict__body ul, .verdict__body ol { margin: 0 0 1rem; padding-left: 1.2rem; }
-.sheet__body li, .verdict__body li { margin-bottom: 0.4rem; }
-.sheet__body strong, .verdict__body strong { color: var(--brass-light); font-weight: 600; }
-.sheet__body code, .verdict__body code {
-  font-family: ui-monospace, monospace;
-  font-size: 0.87em;
+
+.prose ul, .prose ol { margin: 0 0 1.05rem; padding-left: 1.35rem; max-width: 68ch; }
+.prose li { margin-bottom: 0.42rem; }
+.prose li > ul, .prose li > ol { margin: 0.42rem 0 0; }
+.prose li::marker { color: var(--brass); }
+
+/* Task lists: models emit them unprompted and a bare checkbox inherits nothing. */
+.prose li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.1rem; }
+.prose input[type="checkbox"] { accent-color: var(--brass); margin-right: 0.5rem; }
+
+.prose strong { color: var(--brass-light); font-weight: 600; }
+.prose em { color: var(--ink); font-style: italic; }
+.prose del { color: var(--ink-faint); }
+
+.prose a {
+  color: var(--brass-light);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in oklab, var(--brass) 45%, transparent);
+}
+.prose a:hover { text-decoration-color: var(--brass-light); }
+
+.prose code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.86em;
   background: var(--raised);
   padding: 0.1em 0.4em;
   border-radius: 4px;
   color: var(--brass-light);
+}
+
+.prose pre {
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  background: var(--void);
+  border-radius: 10px;
+  line-height: 1.55;
+}
+.prose pre code {
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+/* Code blocks and tables are the two things that do not fold. They scroll inside their
+   own box so a long line cannot widen the panel and give the page a sideways scroll. */
+.prose__scroll {
+  margin: 0 0 1.05rem;
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.88rem;
+}
+.prose th, .prose td {
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.prose th {
+  color: var(--brass-light);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.prose tr:last-child td { border-bottom: none; }
+
+.prose blockquote {
+  margin: 0 0 1.05rem;
+  padding: 0.1rem 0 0.1rem 1.1rem;
+  border-left: 1px solid var(--brass);
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 1.6rem 0;
 }
 
 .error-toast {
@@ -488,7 +693,7 @@ textarea, input { caret-color: var(--brass-light); }
     animation-duration: 200ms !important;
   }
   /* Nothing translates, scales or rotates on entry. */
-  .titlecard, .ask__panel, .tabulate__panel, .verdict__panel, .sheet__panel,
+  .splash, .ask__panel, .tabulate__panel, .verdict__panel, .sheet__panel,
   .ranking, .followups__chip, .tabulate__list li, .conflict li,
   .emblem, .emblem__label {
     transform: none !important;
@@ -535,18 +740,4 @@ textarea, input { caret-color: var(--brass-light); }
 
 /* Masked rather than filtered. A sepia/hue-rotate chain on white artwork lands on a
    muddy brown; masking paints the exact brass from the palette. */
-.titlecard__mark {
-  display: block;
-  width: clamp(58px, 9vw, 94px);
-  aspect-ratio: 1;
-  margin: 0 auto 1.1rem;
-  background: linear-gradient(180deg, var(--brass-light), var(--brass));
-  mask-image: url(/brand/logo.png);
-  -webkit-mask-image: url(/brand/logo.png);
-  mask-size: contain;
-  -webkit-mask-size: contain;
-  mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
-  mask-position: center;
-  -webkit-mask-position: center;
-}
+

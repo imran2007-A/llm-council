@@ -8,7 +8,7 @@ import type { PointLight } from "three";
 import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
 import { AbstractForm, SeatEmblem } from "./Presence";
-import { Mannequin } from "./Mannequin";
+import { Mannequin, MannequinHitBox } from "./Mannequin";
 import { MixamoAvatar, useMixamoClips } from "./MixamoAvatar";
 import { AVATAR_MODE, HAS_MIXAMO_CLIPS } from "../avatars";
 import { Floor, FormingRing, Table, seatPosition, seatRotation } from "./Table";
@@ -26,7 +26,7 @@ import type { SeatConfig, SeatState } from "../types";
  */
 
 const BLANK: SeatState = {
-  id: "", status: "idle", text: "", error: null,
+  id: "", status: "idle", text: "", answer: "", error: null,
   modelUsed: null, cached: false, tokenCount: 0, lastTokenAt: 0,
 };
 
@@ -310,13 +310,23 @@ function SceneContents({
                       clips={clips}
                     />
                   ) : AVATAR_MODE === "mannequin" ? (
-                    <Mannequin
+                    <>
+                      {/* Point at the person, not at the small mark floating above them.
+                          One invisible box beats raycasting twenty capsules, and it is
+                          what makes "light up whoever I am pointing at" work at all. */}
+                      <MannequinHitBox
+                        onOver={() => setHovered(seat.id)}
+                        onOut={() => setHovered((h) => (h === seat.id ? null : h))}
+                        onClick={() => { if (state.text || state.error) onOpenSeat(seat.id); }}
+                      />
+                      <Mannequin
                       seatId={seat.id}
                       state={state}
                       accent={accent}
                       isChairman={isChairman}
                       hovered={isHovered || delivering}
-                    />
+                      />
+                    </>
                   ) : (
                     <AbstractForm
                       state={state}

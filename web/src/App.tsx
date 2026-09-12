@@ -166,12 +166,29 @@ export default function App() {
         )}
       </Suspense>
 
-      {/* Title card, only during the opening */}
-      <div className={`titlecard ${phase === "forming" && elapsed > formation.tableRise ? "is-open" : ""}`}>
-        <span className="titlecard__mark" aria-hidden />
-        <h1>LLM Council</h1>
-        <p>Four minds, one verdict</p>
-      </div>
+      {/* The opening. The mark arrives before the room does, catches a light across it,
+          then collapses into the point that becomes the table's centre lamp -- so the
+          splash hands off to the formation instead of cutting to it. Timings come from
+          the same constants the 3D sequence reads, passed down as custom properties, so
+          the card and the geometry cannot drift apart. */}
+      {phase === "forming" && elapsed < formation.ring && (
+        <div
+          className="splash"
+          style={{
+            "--splash-in": `${formation.splashSweep - formation.splashIn}ms`,
+            "--splash-sweep-at": `${formation.splashSweep}ms`,
+            "--splash-out-at": `${formation.splashOut}ms`,
+          } as React.CSSProperties}
+          aria-hidden
+        >
+          <div className="splash__stage">
+            <span className="splash__mark" />
+            <span className="splash__sweep" />
+          </div>
+          <h1 className="splash__word">LLM Council</h1>
+          <p className="splash__tag">Four minds, one verdict</p>
+        </div>
+      )}
 
       {phase === "ready" && (
         <>
@@ -223,6 +240,7 @@ export default function App() {
         disagreement={council.synthesis?.disagreement ?? []}
         ranking={council.ranking}
         seats={everyone}
+        answers={council.seats}
         onContinue={() => setPhase("verdict")}
       />
 

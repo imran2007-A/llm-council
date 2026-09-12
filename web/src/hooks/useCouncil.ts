@@ -27,6 +27,7 @@ function blankSeat(id: string): SeatState {
     id,
     status: "idle",
     text: "",
+    answer: "",
     error: null,
     modelUsed: null,
     cached: false,
@@ -114,6 +115,9 @@ export function useCouncil(): CouncilState {
             error: null,
             cached: false,
             tokenCount: 0,
+            // A follow-up question re-enters stage 1 without a reset, so the previous
+            // question's answer has to go here or the comparison shows the old one.
+            ...(event.stage === "opinions" ? { answer: "" } : {}),
           });
           break;
 
@@ -152,6 +156,10 @@ export function useCouncil(): CouncilState {
             error: event.error,
             // Non-streaming paths (cache hits, dry runs) deliver the text only here.
             text: event.ok ? event.text : "",
+            // Stage 1 is the only stage whose output has to outlive its own stage: the
+            // comparison and the answer sheet both show it long after stage 2 has
+            // overwritten `text`.
+            ...(event.ok && event.stage === "opinions" ? { answer: event.text } : {}),
           });
           if (event.ok && event.stage === "chairman") setVerdict(event.text);
           break;

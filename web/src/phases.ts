@@ -35,22 +35,33 @@ export const PHASE_ORDER: Phase[] = [
  * with the geometry it is titling.
  */
 export const formation = {
+  /* ---- the splash: the mark, before there is a room ---- */
+  /** The logo strikes in out of black. */
+  splashIn: 0,
+  /** A light sweeps across the mark, as if it were struck metal catching a lamp. */
+  splashSweep: 650,
+  /** It holds, alone. */
+  splashHold: 1500,
+  /** The mark collapses into a single point of light -- which becomes the table's. */
+  splashOut: 2050,
+
+  /* ---- the room assembles around that point ---- */
   /** A single point pulses at the centre of the void. */
-  seedIn: 0,
+  seedIn: 2300,
   /** It splits into five, which arc outward to their places. */
-  split: 500,
+  split: 2800,
   /** A ring sweeps the circle; the table surface rises behind it. */
-  ring: 1100,
-  tableRise: 1300,
+  ring: 3400,
+  tableRise: 3600,
   /** Chairs rise out of the floor, staggered. */
-  chairs: 1900,
+  chairs: 4200,
   chairStagger: 90,
   /** The figures settle into the chairs. */
-  figures: 2500,
+  figures: 4800,
   figureStagger: 100,
   /** Camera reaches its resting position; the centre button appears. */
-  settle: 3100,
-  done: 3600,
+  settle: 5500,
+  done: 6000,
 } as const;
 
 /** How long the deliberation beat holds, even if the data lands sooner. */

@@ -113,7 +113,9 @@
 
 .emblem__label {
   position: absolute;
-  top: 100%;
+  /* Above the mark, into empty air. Below it the label landed on the figure's own head
+     and, at the far side of the table, on the next seat's emblem. */
+  bottom: 100%;
   left: 50%;
   white-space: nowrap;
   font-size: 9px;
@@ -121,7 +123,7 @@
   text-transform: uppercase;
   color: var(--accent);
   /* Never scale from 0: nothing in the real world appears out of nothing. */
-  transform: translate(-50%, 2px) scale(0.94);
+  transform: translate(-50%, -4px) scale(0.94);
   opacity: 0;
   pointer-events: none;
   transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
@@ -137,7 +139,13 @@
   position: absolute;
   inset: 0;
   display: grid;
-  place-items: center;
+  /* minmax(0, 1fr) rather than a bare auto column. With place-items: center the track is
+     sized to the panel's own max-content, so the panel's `width: min(1240px, 100%)`
+     measured 100% against itself and the widened comparison overflowed the viewport --
+     the fourth member was cut off the right edge. */
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  justify-items: center;
   padding: 4vh 4vw;
   background: rgba(10, 8, 6, 0);
   opacity: 0;
@@ -153,7 +161,8 @@
 }
 
 .tabulate__panel {
-  width: min(760px, 100%);
+  width: min(880px, 100%);
+  transition: width 420ms var(--ease-out), transform 420ms var(--ease-out);
   max-height: 84vh;
   overflow-y: auto;
   padding: 2.2rem 2.4rem;
@@ -175,32 +184,55 @@
   font-weight: 400;
   font-size: 1.7rem;
 }
+.tabulate__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+}
 .tabulate__head p {
-  margin: 0.25rem 0 1.6rem;
+  margin: 0.25rem 0 0;
   color: var(--ink-faint);
   font-size: 0.82rem;
 }
 
-.tabulate__list { list-style: none; margin: 0; padding: 0; }
-.tabulate__list li {
+/* Columns, not rows. Each member gets a lane; the eye compares across, not down. */
+.tabulate__grid {
   display: grid;
-  grid-template-columns: 26px 190px 1fr;
-  align-items: baseline;
-  gap: 0.9rem;
-  padding: 0.85rem 0;
+  /* 150px is what lets four members sit on one row inside the panel. At 180px the
+     fourth wrapped onto a second row, which is a grid, not a comparison. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0 1.25rem;
+  align-items: start;
+}
+
+.tabulate__col {
+  position: relative;
+  padding: 1rem 0 1.1rem;
   border-top: 1px solid var(--line);
   opacity: 0;
+  min-width: 0; /* grid children refuse to shrink below content width without this */
 }
-.tabulate.is-open .tabulate__list li {
+/* A short rule in the member's own colour, sitting on the column's top border. Identity
+   without a coloured stripe down the side of a card. */
+.tabulate__col::before {
+  content: "";
+  position: absolute;
+  top: -1px; left: 0;
+  width: 2.2rem;
+  height: 1px;
+  background: var(--accent);
+}
+.tabulate.is-open .tabulate__col {
   animation: fade-up 420ms var(--ease-out) forwards;
   animation-delay: var(--delay);
 }
-.tabulate__list li:last-child { border-bottom: 1px solid var(--line); }
 
 .tabulate__emblem {
   width: 18px;
   height: 18px;
-  align-self: center;
+  flex: none;
   background: var(--accent);
   mask-image: var(--mark);
   -webkit-mask-image: var(--mark);
@@ -211,14 +243,57 @@
   mask-position: center;
   -webkit-mask-position: center;
 }
-.tabulate__who { display: flex; align-items: baseline; gap: 0.5rem; }
-.tabulate__who strong { color: var(--ink); font-weight: 500; font-size: 0.88rem; }
+.tabulate__who {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+.tabulate__who strong {
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  min-width: 0;
+}
 .tabulate__rank {
+  margin-left: auto;
   color: var(--ink-faint);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
 }
-.tabulate__said { color: var(--ink-muted); font-size: 0.88rem; line-height: 1.5; }
+.tabulate__said {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+/* Expanded: the same lanes, carrying the whole answer. Each scrolls on its own so one
+   long reply cannot push the others off the bottom of the panel. */
+.tabulate__full {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  max-height: 46vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tabulate__full .prose { font-size: 0.84rem; line-height: 1.6; }
+.tabulate__full .prose p,
+.tabulate__full .prose ul,
+.tabulate__full .prose ol { max-width: none; }
+.tabulate__full .prose h1,
+.tabulate__full .prose h2 { font-size: 1rem; }
+.tabulate__full .prose h3 { font-size: 0.92rem; }
+.tabulate__missing { margin: 0; color: var(--ink-faint); font-size: 0.82rem; }
+
+.tabulate__toggle { flex: none; align-self: start; }
+
+/* Expanding needs the width; the panel grows rather than squeezing four answers into a
+   reading column meant for one. Width is a layout property, so this is the one place it
+   is animated -- it happens once, on a click, not every frame. */
+.tabulate__panel.is-expanded { width: min(1240px, 100%); }
 
 .conflict { margin-top: 1.8rem; }
 .conflict h3 {

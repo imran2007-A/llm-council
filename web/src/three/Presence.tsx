@@ -153,7 +153,7 @@ export function SeatEmblem({
   return (
     // Just above the head, not adrift near the ceiling. At 2.35 the emblems floated a
     // full body-length clear of their owners and read as unrelated marks in the dark.
-    <Billboard position={[0, 1.42, 0]}>
+    <Billboard position={[0, 1.72, 0]}>
       <Html center distanceFactor={9.5} zIndexRange={[20, 0]}>
         <div
           className="emblem"

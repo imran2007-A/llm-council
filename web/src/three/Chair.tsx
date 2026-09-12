@@ -14,6 +14,18 @@ import { hex, palette } from "../theme";
 
 const CHAIR_URL = "/models/chair/ArmChair_01_1k.gltf";
 
+/**
+ * Start fetching the moment this module is evaluated, not when the first chair mounts.
+ *
+ * Five seats all call useGLTF on the same URL, and each one suspends its own boundary --
+ * so the room came up on the procedural fallback and swapped to the real armchairs about
+ * ten seconds later, in full view. Nothing was failing: 1.3MB of geometry and three 1K
+ * textures simply had not arrived. The scene module is imported behind the splash, which
+ * is now long enough to cover the fetch, so the chairs are in cache before the table
+ * finishes forming.
+ */
+useGLTF.preload(CHAIR_URL);
+
 interface Props {
   /** 0 at the floor, 1 fully risen. Drives the formation sequence. */
   rise?: number;

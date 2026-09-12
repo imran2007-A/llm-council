@@ -37,10 +37,36 @@ async def _emit(on_event: EventHandler | None, event_type: str, **payload) -> No
         await result
 
 
-FAKE_OPINION = (
-    "This is a dry-run response from {label}. It exists so the pipeline can be exercised "
-    "end to end without spending a single API request."
-)
+# Real models answer in markdown -- headings, lists, bold, tables, fenced code. A dry-run
+# fixture of one flat paragraph meant the renderer was never exercised during development,
+# and formatting bugs only showed up against live models, which cost requests to see.
+FAKE_OPINION = """## {label}'s answer
+
+This is a dry-run response. It exists so the pipeline can be exercised end to end
+without spending a single API request.
+
+It deliberately contains the shapes a real model emits, so the **formatting** is
+exercised too:
+
+- a bulleted list, with `inline code`
+- a second item with a [link](https://example.com)
+- a third with *emphasis* and a nested point
+  - which is indented under its parent
+
+1. an ordered list
+2. with two entries
+
+| Option | Cost | Reversible |
+| --- | --- | --- |
+| Monorepo | Low | Yes |
+| Split repos | High | Hard |
+
+```python
+def verdict(answers):
+    return max(answers, key=score)
+```
+
+> A block quote, which models reach for when citing a caveat."""
 FAKE_REVIEW = (
     "Response A is clear but shallow. Response B has the strongest reasoning. "
     "Response C repeats itself.\n\nRANKING: {ranking}"
@@ -48,10 +74,22 @@ FAKE_REVIEW = (
 # The fake verdict carries the same structured sections a real Chairman emits, so a dry
 # run exercises the comparison table, the conflicts and the follow-ups too. An offline
 # mode that only covers half the interface is an offline mode you stop trusting.
-FAKE_VERDICT = """This is a dry-run verdict. No models were called.
+FAKE_VERDICT = """## The verdict
+
+This is a dry-run verdict. **No models were called.**
 
 The council broadly agreed, with one dissent worth noting, and the reasoning below is
 placeholder text standing in for a real synthesis.
+
+### What they agreed on
+
+- The decision is reversible at small scale
+- The cost shows up later, not now
+
+### What to do
+
+1. Start with the simpler option
+2. Revisit once the team passes roughly ten people
 
 ===POSITIONS===
 A: Argues for the conservative option on reliability grounds
