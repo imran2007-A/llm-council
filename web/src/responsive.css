@@ -1,0 +1,91 @@
+/* Narrow viewports.
+ *
+ * The scene is built for a desk, but a phone should still be able to read a verdict.
+ * Everything here is a composition change, not a second design: the same panels, given
+ * room to breathe at 375px.
+ */
+
+@media (max-width: 720px) {
+  /* Panels become sheets rather than floating cards: at this width a centred card with
+     4vw margins wastes the only space there is. */
+  .ask__panel,
+  .tabulate__panel,
+  .verdict__panel {
+    width: 100%;
+    max-width: none;
+    border-radius: 14px;
+    padding: 1.4rem 1.2rem;
+  }
+
+  .ask,
+  .tabulate,
+  .verdict {
+    padding: 1rem 0.9rem;
+    align-items: end;
+  }
+
+  .ask__input { font-size: 1.15rem; }
+
+  /* Three columns of emblem / name / position do not fit. Stack the name above what it
+     said, and let the emblem sit inline with the name. */
+  .tabulate__list li {
+    grid-template-columns: 20px 1fr;
+    grid-template-areas:
+      "emblem who"
+      ". said";
+    gap: 0.4rem 0.7rem;
+    padding: 0.9rem 0;
+  }
+  .tabulate__emblem { grid-area: emblem; }
+  .tabulate__who { grid-area: who; }
+  .tabulate__said { grid-area: said; font-size: 0.85rem; }
+
+  .tabulate__head h2 { font-size: 1.35rem; }
+  .verdict__panel { max-height: 78vh; }
+
+  /* The sheet is the whole screen on a phone, not a side panel. */
+  .sheet__panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+  .sheet__head { padding: 1.1rem 1.1rem 0.9rem; }
+  .sheet__body { padding: 1.1rem 1.1rem 3rem; }
+
+  /* Touch targets: 44px minimum. A 0.7rem-padded pill lands around 36px. */
+  .btn {
+    min-height: 44px;
+    padding: 0.75rem 1.3rem;
+  }
+  .btn--icon {
+    min-width: 44px;
+    display: inline-grid;
+    place-items: center;
+  }
+  .followups__chip,
+  .dissent__invite {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Corner controls overlap the scene's own affordances at this size. */
+  .btn--corner {
+    right: 0.9rem;
+    bottom: 0.9rem;
+  }
+  .verdict .btn--next {
+    position: static;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .titlecard { inset: auto 0 18% 0; }
+  .prompt-hint { bottom: 11%; }
+}
+
+/* Short landscape phones: the scene needs the height more than the chrome does. */
+@media (max-height: 520px) {
+  .titlecard__mark { display: none; }
+  .titlecard h1 { font-size: 2rem; }
+}

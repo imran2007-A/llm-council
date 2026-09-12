@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "./council.css";
+import "./responsive.css";
 
 // Uncaught errors are recorded on <body> as well as logged. Some embedded browsers do
 // not surface the console at all, and a silent failure in a 3D scene is indistinguishable

@@ -52,7 +52,7 @@ export const hex = (color: string) => parseInt(color.replace("#", ""), 16);
 
 export const font = {
   display: "'Cormorant Garamond', Georgia, serif",
-  body: "'Inter', system-ui, sans-serif",
+  body: "'Jost', system-ui, sans-serif",
   mono: "'JetBrains Mono', ui-monospace, monospace",
 };
 
@@ -69,14 +69,15 @@ export const motion = {
   slow: 600,
   // Decelerate hard: things arrive quickly then settle. Reads as weight.
   out: "cubic-bezier(0.16, 1, 0.3, 1)",
-  inOut: "cubic-bezier(0.65, 0, 0.35, 1)",
-  // A little overshoot, for anything that should feel physical.
-  spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+  inOut: "cubic-bezier(0.77, 0, 0.175, 1)",
+  // Exponential ease-out. Not a spring: overshoot is the wrong physics for a room made
+  // of walnut and brass, and bounce dates an interface faster than almost anything else.
+  settle: "cubic-bezier(0.16, 1, 0.3, 1)",
 };
 
 /** Injected once at startup so CSS and three.js cannot disagree about a colour. */
 export function cssVariables(): string {
   const lines = Object.entries(palette).map(([k, v]) => `  --${k}: ${v};`);
   const seats = Object.entries(seatColors).map(([k, v]) => `  --seat-${k}: ${v};`);
-  return `:root{\n${lines.join("\n")}\n${seats.join("\n")}\n  --font-display:${font.display};\n  --font-body:${font.body};\n  --ease-out:${motion.out};\n  --ease-spring:${motion.spring};\n}`;
+  return `:root{\n${lines.join("\n")}\n${seats.join("\n")}\n  --font-display:${font.display};\n  --font-body:${font.body};\n  --ease-out:${motion.out};\n  --ease-settle:${motion.settle};\n}`;
 }

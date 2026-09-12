@@ -12,6 +12,20 @@ import { seatColor } from "../theme";
  * the DOM keeps the reading.
  */
 
+/** Drawn rather than a unicode glyph, so it matches stroke weight with everything else. */
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M3 3l8 8M11 3l-8 8"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /* --------------------------------------------------------------------------- ask box */
 
 export function AskBox({
@@ -115,7 +129,9 @@ export function AnswerPanel({
                   {state.cached && " · from cache"}
                 </p>
               </div>
-              <button className="btn btn--icon" onClick={onClose} aria-label="Close">✕</button>
+              <button className="btn btn--icon" onClick={onClose} aria-label="Close">
+                <CloseIcon />
+              </button>
             </header>
             <div className="sheet__body">
               {state.error
@@ -193,7 +209,7 @@ export function Verdict({
   return (
     <div className={`verdict ${open ? "is-open" : ""}`} aria-hidden={!open}>
       <div className="verdict__panel">
-        <p className="verdict__eyebrow">The Chairman's verdict</p>
+        <h2 className="verdict__title">The Chairman's verdict</h2>
         <div className="verdict__body">
           <Prose text={text} />
           {streaming && <span className="caret" />}
@@ -382,9 +398,11 @@ export function DissentPanel({
           style={{ "--accent": seatColor(seat.id) } as React.CSSProperties}
         >
           <header>
-            <p className="dissent__eyebrow">Ranked last · defending its answer</p>
             <h3>{seat.label}</h3>
-            <button className="btn btn--icon" onClick={onClose} aria-label="Close">✕</button>
+            <p className="dissent__note">Ranked last, defending its answer</p>
+            <button className="btn btn--icon" onClick={onClose} aria-label="Close">
+                <CloseIcon />
+              </button>
           </header>
           {pending
             ? <p className="dissent__waiting">Putting it to them<span className="ellipsis" /></p>

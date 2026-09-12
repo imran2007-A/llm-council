@@ -48,11 +48,17 @@ interface CameraProps {
 }
 
 function CameraRig({ phase, elapsed, chairmanPosition }: CameraProps) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const position = useRef(new Vector3(0, 11, 13));
   const lookAt = useRef(new Vector3(0, 0.9, 0));
   const scratch = useRef(new Vector3());
   const focusPoint = useRef(new Vector3(0, 0.9, 0));
+
+  // A camera framed for a wide desktop viewport crops the table in portrait: the seats
+  // fall outside the frame and only the tabletop is left. Pull back as the viewport
+  // narrows so the whole council stays in shot on a phone.
+  const aspect = size.width / Math.max(1, size.height);
+  const pullback = aspect >= 1.4 ? 1 : 1 + (1.4 - Math.max(aspect, 0.45)) * 0.62;
 
   useFrame((_, delta) => {
     if (phase === "forming") {
@@ -78,6 +84,12 @@ function CameraRig({ phase, elapsed, chairmanPosition }: CameraProps) {
       const next = CAMERA_POSITIONS[phase] ?? CAMERA_POSITIONS.ready;
       position.current.set(next[0], next[1], next[2]);
       lookAt.current.set(0, 0.9, 0);
+    }
+
+    // Portrait viewports need the camera further out; the verdict push-in is deliberately
+    // close, so it is left alone.
+    if (phase !== "verdict" && pullback !== 1) {
+      position.current.multiplyScalar(pullback);
     }
 
     // Frame-rate independent easing, so the move feels identical at 60Hz and 144Hz.

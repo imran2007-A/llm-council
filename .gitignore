@@ -14,3 +14,6 @@ brand-source/
 
 # Local FBX->GLB conversion fixture
 web/public/models/mixamo/_test-character.*
+
+# impeccable engine binary (downloaded per-machine)
+.github/skills/impeccable/scripts/bin/

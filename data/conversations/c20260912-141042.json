@@ -1,0 +1,14 @@
+{
+  "id": "c20260912-141042",
+  "created": 1789202443.8970256,
+  "turns": [
+    {
+      "run_id": "20260912-141042",
+      "question": "mobile layout check",
+      "verdict": "This is a dry-run verdict. No models were called.\n\nThe council broadly agreed, with one dissent worth noting, and the reasoning below is\nplaceholder text standing in for a real synthesis.",
+      "ts": 1789202443.8970323
+    }
+  ],
+  "title": "mobile layout check",
+  "updated": 1789202443.8970788
+}

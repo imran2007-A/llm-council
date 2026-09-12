@@ -154,7 +154,7 @@
   /* The inner highlight is the detail that separates "premium" from "flat panel". */
   box-shadow: 0 50px 120px -40px #000, inset 0 1px 0 rgba(255, 255, 255, 0.045);
   transform: translateY(16px) scale(0.985);
-  transition: transform 460ms var(--ease-spring);
+  transition: transform 460ms var(--ease-settle);
 }
 .tabulate.is-open .tabulate__panel { transform: none; }
 
@@ -350,9 +350,9 @@
   color: var(--accent);
   font-weight: 500;
 }
-.dissent__eyebrow {
+.dissent__note {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--ink-faint);
 }
 .dissent__panel header .btn--icon { margin-left: auto; }
