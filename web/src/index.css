@@ -428,11 +428,16 @@ textarea, input { caret-color: var(--brass-light); }
 }
 .deliberation.is-open { opacity: 1; transform: none; }
 .deliberation__title {
+  /* This line owns the whole screen: the room is dark, nothing else is on it, and the
+     council is working. At 1.8rem it was captioning the moment instead of being it.
+     -0.02em keeps it tight without the letters touching; -0.04em is the floor. */
   margin: 0;
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 1.8rem;
-  letter-spacing: 0.01em;
+  font-size: clamp(2rem, 4.6vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
   color: var(--ink);
 }
 .deliberation__sub {
@@ -539,7 +544,8 @@ textarea, input { caret-color: var(--brass-light); }
   margin: 0 0 1.4rem;
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 1.6rem;
+  font-size: clamp(1.7rem, 2.6vw, 2.3rem);
+  letter-spacing: -0.015em;
   color: var(--brass-light);
 }
 .verdict .btn--next { position: absolute; right: 2rem; bottom: 2rem; }

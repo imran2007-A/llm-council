@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
  */
 
 export interface QualityTier {
-  name: "high" | "medium" | "low";
+  name: "ultra" | "high" | "medium" | "low";
   /** Render scale. The single biggest lever on an integrated GPU. */
   dpr: number;
   /** MSAA samples on the post-processing render target. */
@@ -42,6 +42,10 @@ export interface QualityTier {
  * carry the whole adaptation instead.
  */
 export const TIERS: QualityTier[] = [
+  // A discrete GPU can pay for more than the scene was ever asking. Nothing here is
+  // reachable unless the machine actually holds it for four consecutive samples, so the
+  // ceiling costs a weak laptop nothing.
+  { name: "ultra", dpr: 2, multisampling: 8, bloom: "large", shadowMap: 4096, shadows: true, lamps: true },
   { name: "high", dpr: 1.5, multisampling: 4, bloom: "large", shadowMap: 2048, shadows: true, lamps: true },
   { name: "medium", dpr: 1.1, multisampling: 0, bloom: "large", shadowMap: 1024, shadows: true, lamps: true },
   // The room has nine lights, every one of them evaluated per pixel against PBR
@@ -240,7 +244,7 @@ export function QualityGovernor({
  * nothing; a weak one never pays for a tier it was never going to hold.
  */
 export function useQualityTier(): [QualityTier, number, (i: number) => void] {
-  const [index, setIndex] = useState(1);
+  const [index, setIndex] = useState(1); // "high": one step below the ceiling
   return [TIERS[index], index, setIndex];
 }
 

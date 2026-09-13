@@ -4,7 +4,7 @@ import { Bloom, EffectComposer, Noise, Vignette } from "@react-three/postprocess
 import { BlendFunction, KernelSize } from "postprocessing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ACESFilmicToneMapping, MathUtils, Vector3 } from "three";
-import type { PointLight } from "three";
+import type { PointLight, SpotLight } from "three";
 import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
 import { AbstractForm, SeatEmblem } from "./Presence";
@@ -170,17 +170,39 @@ function SeatLamp({
   );
 }
 
-function Lighting({ intensity, dim, shadowMap, shadows, lamps }: {
+/** With the seat lamps gone the room loses most of its fill, and a dark room is not a
+ *  cheaper room, it is a broken one. The lights that remain carry more. */
+const fillFor = (lamps: boolean) => (lamps ? 1 : 1.9);
+
+function Lighting({ intensity, dim, shadowMap, shadows, lamps, flood }: {
   intensity: number; dim: number; shadowMap: number; shadows: boolean; lamps: boolean;
+  flood?: boolean;
 }) {
-  // With the five seat lamps gone the room loses most of its fill, and a dark room is not
-  // a cheaper room, it is a broken one. The two lights that remain carry more.
-  const fill = lamps ? 1 : 1.9;
-  const ambient = useRef<PointLight>(null);
+  const key = useRef<SpotLight>(null);
+  const warm = useRef<PointLight>(null);
+
+  // Eased, never cut. A light that snaps to a new intensity reads as a bug; the same
+  // change over a second reads as the room turning its attention.
+  useFrame((_, delta) => {
+    const k = 1 - Math.pow(0.02, delta);
+    if (key.current) {
+      key.current.intensity = MathUtils.lerp(
+        key.current.intensity, 46 * (lamps ? 1 : 1.25) * intensity * dim, k,
+      );
+    }
+    if (warm.current) {
+      warm.current.intensity = MathUtils.lerp(
+        warm.current.intensity, (flood ? 16 : 4) * fillFor(lamps) * intensity, k,
+      );
+      warm.current.distance = MathUtils.lerp(warm.current.distance, flood ? 13 : 5, k);
+    }
+  });
+  const fill = fillFor(lamps);
   return (
     <>
       <ambientLight intensity={0.16 * fill * intensity * dim} color={hex(palette.amberDim)} />
       <spotLight
+        ref={key}
         position={[0, 6.5, 0]}
         angle={0.78}
         penumbra={1}
@@ -197,7 +219,7 @@ function Lighting({ intensity, dim, shadowMap, shadows, lamps }: {
         color={hex(palette.brassLight)}
       />
       <pointLight
-        ref={ambient}
+        ref={warm}
         position={[0, 1.1, 0]}
         intensity={4 * fill * intensity}
         distance={5}
@@ -278,6 +300,18 @@ function SceneContents({
   // Hovering one member pulls light away from the rest. A lean, not a blackout.
   const dim = hovered ? 0.62 : 1;
 
+  /**
+   * The verdict is the one moment the room commits to a colour.
+   *
+   * Everywhere else this interface is deliberately restrained -- near-black, one warm
+   * accent, nothing shouting. Restraint everywhere means nothing lands anywhere, and the
+   * verdict is the payoff the whole flow is built toward. So for that one beat the key
+   * light warms hard and the brass floods the chamber, and it recedes when the next
+   * question is asked. One committed beat in a quiet room reads as an event; the same
+   * colour everywhere would just be the theme.
+   */
+  const verdictFlood = phase === "verdict";
+
   useEffect(() => {
     document.body.style.cursor = hovered ? "pointer" : "auto";
   }, [hovered]);
@@ -287,8 +321,9 @@ function SceneContents({
       <color attach="background" args={[palette.void]} />
       <fog attach="fog" args={[palette.void, 9, 24]} />
       <Lighting
-        intensity={forming ? at(formation.ring, 900) : 1}
+        intensity={(forming ? at(formation.ring, 900) : 1) * (verdictFlood ? 1.45 : 1)}
         dim={dim}
+        flood={verdictFlood}
         shadowMap={tier.shadowMap}
         shadows={tier.shadows && !disabled("shadows")}
         lamps={tier.lamps && !disabled("lamps")}

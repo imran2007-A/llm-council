@@ -149,11 +149,36 @@ export function SeatEmblem({
   seatId, label, accent, state, hovered, onHover, onClick, interactive,
 }: EmblemProps) {
   const working = state.status === "thinking" || state.status === "speaking";
+  const group = useRef<Group>(null);
+  const drift = useRef({ x: 0, y: 0 });
+
+  /**
+   * The emblems lean toward the cursor.
+   *
+   * Asked for at the start -- "hovering above everyone, interactive to the cursor" --
+   * and never built. They sat perfectly still, which is what makes a floating object read
+   * as pasted on rather than present in the room.
+   *
+   * The lean is tiny and the whole council leans together, so moving the mouse across the
+   * table sends a shallow wave through five marks rather than twitching one. Eased toward
+   * the target rather than set from it: pointer position is a step function, and anything
+   * driven straight off it looks mechanical no matter how small the movement.
+   */
+  useFrame(({ pointer, clock }, delta) => {
+    if (!group.current) return;
+    const k = 1 - Math.pow(0.0015, delta);
+    drift.current.x = MathUtils.lerp(drift.current.x, pointer.x, k);
+    drift.current.y = MathUtils.lerp(drift.current.y, pointer.y, k);
+
+    const bob = Math.sin(clock.elapsedTime * 0.9 + seatId.charCodeAt(0)) * 0.018;
+    group.current.position.x = drift.current.x * 0.12;
+    group.current.position.y = 1.72 + bob + drift.current.y * 0.07;
+    group.current.rotation.z = -drift.current.x * 0.09;
+  });
 
   return (
-    // Just above the head, not adrift near the ceiling. At 2.35 the emblems floated a
-    // full body-length clear of their owners and read as unrelated marks in the dark.
-    <Billboard position={[0, 1.72, 0]}>
+    <group ref={group} position={[0, 1.72, 0]}>
+      <Billboard>
       <Html center distanceFactor={9.5} zIndexRange={[20, 0]}>
         <div
           className="emblem"
@@ -187,7 +212,8 @@ export function SeatEmblem({
           {working && <span className="emblem__pulse" aria-hidden />}
           <span className="emblem__label">{label}</span>
         </div>
-      </Html>
-    </Billboard>
+        </Html>
+      </Billboard>
+    </group>
   );
 }

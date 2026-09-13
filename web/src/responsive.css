@@ -82,4 +82,5 @@
 @media (max-height: 520px) {
   .splash__stage { margin-bottom: 0.8rem; width: clamp(64px, 16vw, 90px); }
   .splash__word { font-size: 1.9rem; }
+  .deliberation__title { font-size: 1.9rem; }
 }
