@@ -326,8 +326,8 @@ function SceneContents({
         dim={dim}
         flood={verdictFlood}
         shadowMap={tier.shadowMap}
-        shadows={tier.shadows && !disabled("shadows")}
-        lamps={tier.lamps && !disabled("lamps")}
+        shadows={!disabled("shadows")}
+        lamps={!disabled("lamps")}
       />
 
       <Floor />
@@ -372,7 +372,7 @@ function SceneContents({
 
         return (
           <group key={seat.id}>
-            {tier.lamps && !disabled("lamps") && (
+            {!disabled("lamps") && (
               <SeatLamp
                 position={positions[i]}
                 intensity={forming ? at(formation.chairs, 900) : 1}

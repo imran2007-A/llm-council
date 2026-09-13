@@ -25,35 +25,30 @@ export interface QualityTier {
   bloom: "large" | "small";
   /** Shadow map resolution for the key light. */
   shadowMap: number;
-  /** Whether the key light casts a shadow at all. */
-  shadows: boolean;
-  /** Whether the five per-seat lamps are real lights or baked into emissive glow. */
-  lamps: boolean;
 }
 
 /**
- * Every tier keeps the filmic grade.
+ * Every tier keeps the lighting and the filmic grade. Only resolution moves.
  *
- * The lowest tier originally dropped the EffectComposer entirely. Unmounting it at
- * runtime leaves the canvas black -- the room was still rendering at 23fps behind a
- * blank screen. Beyond the bug, dropping it was the wrong lever: bloom on an already
- * tone-mapped frame is a fraction of what a full-resolution render costs, and the grade
- * is most of what makes this room look like a room. Resolution and antialias sampling
- * carry the whole adaptation instead.
+ * Two things were tried here and both were wrong. The lowest tier first dropped the
+ * EffectComposer, which leaves the canvas black. Then it dropped the five per-seat lamps
+ * and the shadow pass -- which worked, and looked like a bug: a cold load spends its
+ * first seconds compiling shaders and decoding the armchair, the governor read that as a
+ * slow GPU, and the room settled into flat unlit figures. Refreshing "fixed" it, because
+ * the second load is cached and fast.
+ *
+ * Lighting is not a performance setting. It is what the room IS, and a user cannot tell
+ * "my machine is struggling" from "this software is broken" when the difference is that
+ * everyone at the table went dark. Resolution can slide; the light stays.
  */
 export const TIERS: QualityTier[] = [
   // A discrete GPU can pay for more than the scene was ever asking. Nothing here is
   // reachable unless the machine actually holds it for four consecutive samples, so the
   // ceiling costs a weak laptop nothing.
-  { name: "ultra", dpr: 2, multisampling: 8, bloom: "large", shadowMap: 4096, shadows: true, lamps: true },
-  { name: "high", dpr: 1.5, multisampling: 4, bloom: "large", shadowMap: 2048, shadows: true, lamps: true },
-  { name: "medium", dpr: 1.1, multisampling: 0, bloom: "large", shadowMap: 1024, shadows: true, lamps: true },
-  // The room has nine lights, every one of them evaluated per pixel against PBR
-  // materials. On integrated graphics that is the dominant cost once the redundant
-  // scene re-renders are gone, and no amount of resolution scaling rescues it. The
-  // lowest tier drops the five per-seat lamps and the shadow pass: three lights instead
-  // of nine, and the seats keep their identity through the emblem and the accent ring.
-  { name: "low", dpr: 0.75, multisampling: 0, bloom: "small", shadowMap: 512, shadows: false, lamps: false },
+  { name: "ultra", dpr: 2, multisampling: 8, bloom: "large", shadowMap: 4096 },
+  { name: "high", dpr: 1.5, multisampling: 4, bloom: "large", shadowMap: 2048 },
+  { name: "medium", dpr: 1.1, multisampling: 0, bloom: "large", shadowMap: 2048 },
+  { name: "low", dpr: 0.75, multisampling: 0, bloom: "small", shadowMap: 1024 },
 ];
 
 /** 60fps is 16.7ms. Stepping down above 21ms keeps a margin rather than chasing the edge. */
@@ -71,6 +66,15 @@ const SAMPLE_MS = 900;
  * load happens behind another window.
  */
 const MIN_FRAMES = 6;
+/**
+ * Nothing is judged until the room has finished arriving.
+ *
+ * The opening is the worst-performing part of the whole app and the least representative
+ * of it: shaders compile, the armchair decodes, and the formation animates, all at once.
+ * Sampling through that told the governor the machine was slow when it simply had not
+ * warmed up yet.
+ */
+const GRACE_MS = 7000;
 /** Consecutive samples before the tier moves. Down quickly, up cautiously. */
 const DECLINE_SAMPLES = 2;
 const INCLINE_SAMPLES = 4;
@@ -183,8 +187,11 @@ export function QualityGovernor({
     } catch { /* diagnostics never break the scene */ }
   }, [gl]);
 
+  const born = useRef(performance.now());
+
   useFrame((_, delta) => {
     if (!visible.current || document.hidden) return;
+    if (performance.now() - born.current < GRACE_MS) return;
 
     frames.current += 1;
     elapsed.current += delta * 1000;

@@ -212,7 +212,18 @@ export function useCouncil(): CouncilState {
       setDissent(null);
       setStage(null);
       setStagesDone([]);
-      setSeats(Object.fromEntries(seatOrder.map((id) => [id, blankSeat(id)])));
+      // Every council seat is marked thinking straight away, rather than waiting for the
+      // server's seat_started events. Those arrive after a POST, an SSE connection and
+      // the run actually beginning -- close to a second in which you have pressed Enter,
+      // the ask box has gone, and nothing on the table has changed. The seats genuinely
+      // are queued at that point, so showing them working is honest as well as faster.
+      // The Chairman is not: it does not speak until stage three.
+      setSeats(Object.fromEntries(seatOrder.map((id) => [
+        id,
+        id === config?.chairman.id
+          ? blankSeat(id)
+          : { ...blankSeat(id), status: "thinking" as const },
+      ])));
       setRunning(true);
 
       let runId: string;
@@ -263,7 +274,7 @@ export function useCouncil(): CouncilState {
         setRunning(false);
       };
     },
-    [running, seatOrder, conversationId, handle],
+    [running, seatOrder, conversationId, handle, config],
   );
 
   const reset = useCallback(() => {
