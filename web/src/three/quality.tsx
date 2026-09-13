@@ -25,6 +25,10 @@ export interface QualityTier {
   bloom: "large" | "small";
   /** Shadow map resolution for the key light. */
   shadowMap: number;
+  /** Whether the key light casts a shadow at all. */
+  shadows: boolean;
+  /** Whether the five per-seat lamps are real lights or baked into emissive glow. */
+  lamps: boolean;
 }
 
 /**
@@ -38,9 +42,14 @@ export interface QualityTier {
  * carry the whole adaptation instead.
  */
 export const TIERS: QualityTier[] = [
-  { name: "high", dpr: 1.5, multisampling: 4, bloom: "large", shadowMap: 2048 },
-  { name: "medium", dpr: 1.1, multisampling: 0, bloom: "large", shadowMap: 1024 },
-  { name: "low", dpr: 0.8, multisampling: 0, bloom: "small", shadowMap: 1024 },
+  { name: "high", dpr: 1.5, multisampling: 4, bloom: "large", shadowMap: 2048, shadows: true, lamps: true },
+  { name: "medium", dpr: 1.1, multisampling: 0, bloom: "large", shadowMap: 1024, shadows: true, lamps: true },
+  // The room has nine lights, every one of them evaluated per pixel against PBR
+  // materials. On integrated graphics that is the dominant cost once the redundant
+  // scene re-renders are gone, and no amount of resolution scaling rescues it. The
+  // lowest tier drops the five per-seat lamps and the shadow pass: three lights instead
+  // of nine, and the seats keep their identity through the emblem and the accent ring.
+  { name: "low", dpr: 0.75, multisampling: 0, bloom: "small", shadowMap: 512, shadows: false, lamps: false },
 ];
 
 /** 60fps is 16.7ms. Stepping down above 21ms keeps a margin rather than chasing the edge. */
@@ -65,6 +74,20 @@ const INCLINE_SAMPLES = 4;
 const IMPLAUSIBLE_MS = 250;
 
 export const PERF_ENABLED = new URLSearchParams(window.location.search).has("perf");
+
+/**
+ * ?off=post,shadows,lamps,emblems -- turn subsystems off to find what actually costs.
+ *
+ * Written because the room ran at 7.6fps and every candidate was a guess: nine lights,
+ * a bloom chain, a shadow pass, five DOM overlays repositioned every frame. Bisecting by
+ * editing code and reloading is slow and needs me; a URL flag lets anyone with the page
+ * open answer it in a minute. Diagnosis only -- nothing here changes what ships.
+ */
+const OFF = new Set(
+  (new URLSearchParams(window.location.search).get("off") ?? "")
+    .split(",").map((s) => s.trim()).filter(Boolean),
+);
+export const disabled = (part: "post" | "shadows" | "lamps" | "emblems") => OFF.has(part);
 
 /**
  * "ANGLE (Intel, Intel(R) UHD Graphics (0x00009BC4) Direct3D11 vs_5_0 ps_5_0, D3D11)"

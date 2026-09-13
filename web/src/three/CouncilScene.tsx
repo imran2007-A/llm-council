@@ -9,7 +9,7 @@ import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
 import { AbstractForm, SeatEmblem } from "./Presence";
 import { Mannequin, MannequinHitBox } from "./Mannequin";
-import { PerfReadout, QualityGovernor, useQualityTier } from "./quality";
+import { PerfReadout, QualityGovernor, disabled, useQualityTier } from "./quality";
 import { MixamoAvatar, useMixamoClips } from "./MixamoAvatar";
 import { AVATAR_MODE, HAS_MIXAMO_CLIPS } from "../avatars";
 import { Floor, FormingRing, Table, seatPosition, seatRotation } from "./Table";
@@ -170,19 +170,24 @@ function SeatLamp({
   );
 }
 
-function Lighting({ intensity, dim, shadowMap }: { intensity: number; dim: number; shadowMap: number }) {
+function Lighting({ intensity, dim, shadowMap, shadows, lamps }: {
+  intensity: number; dim: number; shadowMap: number; shadows: boolean; lamps: boolean;
+}) {
+  // With the five seat lamps gone the room loses most of its fill, and a dark room is not
+  // a cheaper room, it is a broken one. The two lights that remain carry more.
+  const fill = lamps ? 1 : 1.9;
   const ambient = useRef<PointLight>(null);
   return (
     <>
-      <ambientLight intensity={0.16 * intensity * dim} color={hex(palette.amberDim)} />
+      <ambientLight intensity={0.16 * fill * intensity * dim} color={hex(palette.amberDim)} />
       <spotLight
         position={[0, 6.5, 0]}
         angle={0.78}
         penumbra={1}
-        intensity={46 * intensity * dim}
+        intensity={46 * (lamps ? 1 : 1.25) * intensity * dim}
         color={hex(palette.amber)}
         distance={16}
-        castShadow
+        castShadow={shadows}
         shadow-mapSize={[shadowMap, shadowMap]}
         shadow-bias={-0.0005}
       />
@@ -194,7 +199,7 @@ function Lighting({ intensity, dim, shadowMap }: { intensity: number; dim: numbe
       <pointLight
         ref={ambient}
         position={[0, 1.1, 0]}
-        intensity={4 * intensity}
+        intensity={4 * fill * intensity}
         distance={5}
         color={hex(palette.amber)}
       />
@@ -264,7 +269,7 @@ function SceneContents({
   // thing that says who is sitting where, so hiding them until a question is asked left
   // the table anonymous exactly when someone is deciding whether to ask one. CSS dims
   // them at rest so five marks do not compete with the light at the centre.
-  const showEmblems = phase !== "forming";
+  const showEmblems = phase !== "forming" && !disabled("emblems");
 
   // Loaded once and shared by every seat: Mixamo rigs all use the same bone names, so
   // one set of clips drives the whole council.
@@ -281,7 +286,13 @@ function SceneContents({
     <>
       <color attach="background" args={[palette.void]} />
       <fog attach="fog" args={[palette.void, 9, 24]} />
-      <Lighting intensity={forming ? at(formation.ring, 900) : 1} dim={dim} shadowMap={tier.shadowMap} />
+      <Lighting
+        intensity={forming ? at(formation.ring, 900) : 1}
+        dim={dim}
+        shadowMap={tier.shadowMap}
+        shadows={tier.shadows && !disabled("shadows")}
+        lamps={tier.lamps && !disabled("lamps")}
+      />
 
       <Floor />
       {/* Baked, not live. ContactShadows defaults to re-rendering the whole scene into
@@ -325,11 +336,13 @@ function SceneContents({
 
         return (
           <group key={seat.id}>
-            <SeatLamp
-              position={positions[i]}
-              intensity={forming ? at(formation.chairs, 900) : 1}
-              focus={focus}
-            />
+            {tier.lamps && !disabled("lamps") && (
+              <SeatLamp
+                position={positions[i]}
+                intensity={forming ? at(formation.chairs, 900) : 1}
+                focus={focus}
+              />
+            )}
             <group position={[x, 0, z]} rotation={[0, seatRotation(i, total), 0]}>
               <Chair rise={rise} accent={accent} isChairman={isChairman} />
               {presence > 0.01 && (
@@ -415,6 +428,7 @@ function SceneContents({
           across a full-screen target is the single most expensive default in the scene on
           integrated graphics -- so the tier turns that down instead of turning the grade
           off. Unmounting the composer to save frames leaves a black canvas. */}
+      {!disabled("post") && (
       <EffectComposer enableNormalPass={false} multisampling={tier.multisampling}>
         {/* Threshold kept high so only genuinely bright things bloom. At 0.22 the whole
             table glowed and the centre light blew out into a coloured smear. */}
@@ -430,6 +444,7 @@ function SceneContents({
             chromatic noise once bloom amplified it. */}
         <Noise premultiply blendFunction={BlendFunction.OVERLAY} opacity={0.06} />
       </EffectComposer>
+      )}
     </>
   );
 }
