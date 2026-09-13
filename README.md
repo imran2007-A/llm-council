@@ -16,6 +16,27 @@ Three ways to use it: a terminal CLI, a dependency-free web page, and a React ap
 
 ---
 
+## Running it (Windows)
+
+Double-click one of these in the project folder:
+
+| | |
+|---|---|
+| `council.cmd` | The real thing. Each question spends roughly 9-11 of the 50 free daily requests. |
+| `council-demo.cmd` | Canned answers, zero API requests. The whole interface, safe to leave open. |
+
+One process does everything: the FastAPI server also serves the built interface, so there
+is no second window and Node is not needed to run it. Closing the window stops the server.
+
+The first launch builds the interface once (that step does need Node). After that it
+starts in a couple of seconds.
+
+To put it on the desktop or taskbar: right-click `council.cmd` -> **Show more options** ->
+**Send to** -> **Desktop (create shortcut)**. Pin that shortcut to the taskbar or Start if
+you want it one click away.
+
+---
+
 ## The council
 
 | Seat | Provider | Model |
