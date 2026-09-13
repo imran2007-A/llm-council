@@ -230,9 +230,17 @@ export function QualityGovernor({
   return null;
 }
 
-/** Everything the scene needs to know about the current tier. */
+/**
+ * Everything the scene needs to know about the current tier.
+ *
+ * Starts at medium, not high. The governor needs about a second of frames before it can
+ * judge anything, and starting at the most expensive setting spends that second on the
+ * splash and the room forming -- the first thing anyone sees, and the part with the most
+ * happening at once. A capable machine climbs to high a few seconds later and loses
+ * nothing; a weak one never pays for a tier it was never going to hold.
+ */
 export function useQualityTier(): [QualityTier, number, (i: number) => void] {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(1);
   return [TIERS[index], index, setIndex];
 }
 
