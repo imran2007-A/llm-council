@@ -35,33 +35,35 @@ export const PHASE_ORDER: Phase[] = [
  * with the geometry it is titling.
  */
 export const formation = {
-  /* ---- the splash: the mark, before there is a room ---- */
-  /** The logo strikes in out of black. */
-  splashIn: 0,
-  /** A light sweeps across the mark, as if it were struck metal catching a lamp. */
-  splashSweep: 650,
-  /** It holds, alone. */
-  splashHold: 1500,
-  /** The mark collapses into a single point of light -- which becomes the table's. */
-  splashOut: 2050,
+  /* ---- the opening: a drop of gold, then the room it falls into ---- */
+  /** A single drop falls out of the dark. */
+  dropFall: 0,
+  /** It lands, and the impact rings out. */
+  dropLand: 620,
+  /** The drop settles into a burning circle; the mark and the name arrive. */
+  markIn: 760,
+  /** It holds. */
+  splashHold: 1700,
+  /** The circle rushes forward and becomes the light on the table. */
+  splashOut: 2200,
 
-  /* ---- the room assembles around that point ---- */
+  /* ---- the room assembles around that light ---- */
   /** A single point pulses at the centre of the void. */
-  seedIn: 2300,
+  seedIn: 2750,
   /** It splits into five, which arc outward to their places. */
-  split: 2800,
+  split: 3150,
   /** A ring sweeps the circle; the table surface rises behind it. */
-  ring: 3400,
-  tableRise: 3600,
+  ring: 3750,
+  tableRise: 3950,
   /** Chairs rise out of the floor, staggered. */
-  chairs: 4200,
+  chairs: 4550,
   chairStagger: 90,
   /** The figures settle into the chairs. */
-  figures: 4800,
+  figures: 5150,
   figureStagger: 100,
   /** Camera reaches its resting position; the centre button appears. */
-  settle: 5500,
-  done: 6000,
+  settle: 5850,
+  done: 6350,
 } as const;
 
 /** How long the deliberation beat holds, even if the data lands sooner. */

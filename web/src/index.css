@@ -93,37 +93,149 @@ textarea, input { caret-color: var(--brass-light); }
 
 /* ---------------------------------------------------------------------- splash */
 
-/* The opening card. Everything here is transform, opacity and filter -- no layout
-   property is animated, so the whole sequence stays on the compositor while the 3D
-   scene is simultaneously building its first frames. */
+/* Black and gold: the room's own two colours, so the opening reads as the same place
+   rather than a card in front of it. Everything animates on transform, opacity and
+   filter, so the sequence stays on the compositor while the 3D scene is simultaneously
+   compiling shaders and building its first frames. */
 
 .splash {
   position: absolute;
   inset: 0;
   z-index: var(--layer-splash);
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 0;
-  text-align: center;
+  overflow: hidden;
   pointer-events: none;
   background: var(--void);
-  animation: splash-curtain 620ms var(--ease-out) var(--splash-out-at) both;
+  animation: splash-clear var(--out) ease-in var(--out-at) both;
 }
 
-.splash__stage {
-  position: relative;
-  width: clamp(84px, 13vw, 140px);
-  aspect-ratio: 1;
-  margin-bottom: 1.4rem;
-  /* The mark and its highlight collapse together into the point the room grows from. */
-  animation: splash-collapse var(--dur-slow) cubic-bezier(0.7, 0, 0.84, 0) var(--splash-out-at) both;
-}
+/* ------------------------------------------------------------------ the drop */
 
-.splash__mark,
-.splash__sweep {
+/* Falls with gravity -- accelerating, not eased-out. A drop that slows as it lands is
+   not a drop, it is a balloon. It stretches as it falls and squashes on impact, which is
+   the whole of why it reads as liquid rather than as a moving dot. */
+.splash__drop {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 38%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #fff6e2, var(--brass-light) 45%, var(--brass) 78%);
+  box-shadow: 0 0 26px 5px rgba(232, 192, 122, 0.6);
+  animation: drop-fall var(--fall) cubic-bezier(0.38, 0, 0.62, 0.42) both;
+}
+
+/* The tail. A 20px dot crossing half the screen in six hundred milliseconds is, in any
+   single frame, invisible -- the eye needs the streak to know something fell. It grows
+   with the fall and is gone by the landing. */
+.splash__drop::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 2px;
+  margin-left: -1px;
+  height: 120px;
+  background: linear-gradient(to top, rgba(232, 192, 122, 0.75), transparent);
+  transform-origin: bottom center;
+  animation: drop-tail var(--fall) cubic-bezier(0.38, 0, 0.62, 0.42) both;
+}
+
+@keyframes drop-tail {
+  0% { transform: scaleY(0); opacity: 0; }
+  35% { opacity: 0.5; }
+  80% { transform: scaleY(1); opacity: 0.85; }
+  100% { transform: scaleY(0.1); opacity: 0; }
+}
+
+@keyframes drop-fall {
+  0% { transform: translateY(-42vh) scaleY(0.7) scaleX(1.05); opacity: 0; }
+  12% { opacity: 1; }
+  /* Stretched by speed just before it arrives. */
+  82% { transform: translateY(-2vh) scaleY(1.5) scaleX(0.72); opacity: 1; }
+  100% { transform: translateY(0) scaleY(0.42) scaleX(1.7); opacity: 1; }
+}
+
+/* The impact. One ring, thrown outward and gone -- not a pulse that repeats, because it
+   happened once. */
+.splash__ripple {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  border: 1px solid var(--brass);
+  opacity: 0;
+  animation: ripple-out 900ms cubic-bezier(0.16, 1, 0.3, 1) var(--land-at) both;
+}
+
+@keyframes ripple-out {
+  0% { transform: scale(0.2); opacity: 0.9; }
+  100% { transform: scale(7); opacity: 0; }
+}
+
+/* --------------------------------------------------------------- what it becomes */
+
+/* The circle the drop leaves behind is the table's centre light, seen before there is a
+   table. When it rushes forward it does not dissolve into the room -- it becomes the
+   thing the room is built around. */
+.splash__orb {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 200px;
+  height: 200px;
+  margin: -100px 0 0 -100px;
+  border-radius: 50%;
+  /* A hot core with a long falloff, so it reads as something burning rather than a
+     sphere lit from the side. The room's centre lamp is built the same way. */
+  background:
+    radial-gradient(circle at 50% 50%,
+      #fffaf0 0%,
+      #ffe7b0 9%,
+      var(--brass-light) 18%,
+      rgba(184, 137, 58, 0.55) 34%,
+      rgba(184, 137, 58, 0.18) 52%,
+      transparent 70%);
+  opacity: 0;
+  animation:
+    orb-bloom 760ms cubic-bezier(0.16, 1, 0.3, 1) var(--land-at) both,
+    orb-rush var(--out) cubic-bezier(0.66, 0, 0.88, 0.24) var(--out-at) both;
+}
+
+@keyframes orb-bloom {
+  from { transform: scale(0.14); opacity: 0; }
+  60% { opacity: 1; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* 26 is enough for the core of the gradient to cover a wide monitor. The brightness lift
+   is what sells passing THROUGH it rather than watching it grow. */
+@keyframes orb-rush {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(26); filter: brightness(1.7); }
+}
+
+/* --------------------------------------------------------------------- the type */
+
+.splash__type {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 18%;
+  text-align: center;
+  animation: type-out var(--out) ease-in var(--out-at) both;
+}
+
+/* The supplied mark, in gold. */
+.splash__mark {
+  display: block;
+  width: clamp(34px, 4.4vw, 52px);
+  aspect-ratio: 1;
+  margin: 0 auto 1rem;
+  background: linear-gradient(170deg, var(--brass-light), var(--brass));
   mask-image: url(/brand/logo.png);
   -webkit-mask-image: url(/brand/logo.png);
   mask-size: contain;
@@ -132,95 +244,45 @@ textarea, input { caret-color: var(--brass-light); }
   -webkit-mask-repeat: no-repeat;
   mask-position: center;
   -webkit-mask-position: center;
-}
-
-/* The mark itself: struck brass, lit from above. */
-.splash__mark {
-  background: linear-gradient(170deg, var(--brass-light) 0%, var(--brass) 55%, var(--amber-dim) 100%);
-  animation: splash-strike var(--splash-in) cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* A band of light travelling across the metal. Masked by the same logo, so the highlight
-   exists only on the mark and never as a rectangle floating over black. */
-.splash__sweep {
-  background: linear-gradient(
-    100deg,
-    transparent 38%,
-    rgba(255, 255, 255, 0.92) 50%,
-    transparent 62%
-  );
-  mix-blend-mode: screen;
-  opacity: 0;
-  animation: splash-sweep 1000ms cubic-bezier(0.33, 0, 0.2, 1) var(--splash-sweep-at) both;
+  animation: type-rise var(--dur-slow) var(--ease-out) var(--mark-at) both;
 }
 
 .splash__word {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 300;
-  font-size: clamp(2.2rem, 6vw, 4rem);
-  letter-spacing: 0.06em;
+  font-size: clamp(2rem, 5.4vw, 3.8rem);
+  line-height: 1;
+  letter-spacing: 0.04em;
   color: var(--ink);
-  animation: splash-rise 900ms var(--ease-out) 260ms both;
+  animation: type-rise var(--dur-slow) var(--ease-out) calc(var(--mark-at) + 120ms) both;
 }
 
 .splash__tag {
-  margin: 0.5rem 0 0;
-  color: var(--brass);
+  margin: 0.7rem 0 0;
+  font-size: 0.68rem;
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  font-size: 0.68rem;
-  animation: splash-rise 900ms var(--ease-out) 440ms both;
+  color: var(--brass);
+  animation: type-rise var(--dur-slow) var(--ease-out) calc(var(--mark-at) + 260ms) both;
 }
 
-/* Never from scale(0): a mark that grows out of nothing reads as a loading spinner.
-   0.86 with a little blur reads as something arriving from depth. */
-@keyframes splash-strike {
-  from { opacity: 0; transform: scale(0.86); filter: blur(7px) brightness(1.8); }
-  to   { opacity: 1; transform: scale(1); filter: blur(0) brightness(1); }
-}
-
-@keyframes splash-sweep {
-  0%   { opacity: 0; transform: translateX(-115%); }
-  18%  { opacity: 1; }
-  82%  { opacity: 1; }
-  100% { opacity: 0; transform: translateX(115%); }
-}
-
-@keyframes splash-rise {
+@keyframes type-rise {
   from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: none; }
+  to { opacity: 1; transform: none; }
 }
 
-/* Accelerating in, so it reads as being pulled down into the room rather than shrinking
-   politely. It lands as a bright point exactly where the table's lamp appears. */
-@keyframes splash-collapse {
-  from { opacity: 1; transform: scale(1); filter: brightness(1); }
-  70%  { opacity: 1; filter: brightness(2.6); }
-  to   { opacity: 0; transform: scale(0.04); filter: brightness(4); }
+/* The type is on this side of the light, so it leaves before you reach it. */
+@keyframes type-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-18px); }
 }
 
-/* The black lifts a beat after the mark has gone, so the room is already forming
+/* The black lifts after the light has taken the screen, so the room is already forming
    underneath rather than starting once the curtain is clear. */
-@keyframes splash-curtain {
+@keyframes splash-clear {
   from { opacity: 1; }
-  to   { opacity: 0; }
-}
-
-.splash__word,
-.splash__tag { animation-fill-mode: both; }
-.splash__word { animation-name: splash-rise, splash-fade-out; }
-.splash__tag { animation-name: splash-rise, splash-fade-out; }
-.splash__word,
-.splash__tag {
-  animation-duration: 900ms, var(--dur-slow);
-  animation-delay: 260ms, var(--splash-out-at);
-  animation-timing-function: var(--ease-out), ease-in;
-}
-.splash__tag { animation-delay: 440ms, var(--splash-out-at); }
-
-@keyframes splash-fade-out {
-  to { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 0; }
 }
 
 .prompt-hint {

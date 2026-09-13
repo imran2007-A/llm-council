@@ -23,6 +23,15 @@ const CouncilScene = lazy(() =>
  */
 const DRY_RUN = new URLSearchParams(window.location.search).has("dry");
 
+/**
+ * ?splash=hold freezes the opening instead of letting it play out.
+ *
+ * It lasts about two seconds, which is not long enough to judge, and a screenshot
+ * reliably lands after it is over. The flag holds it at the end of its entrance with the
+ * rush still to come.
+ */
+const HOLD_SPLASH = new URLSearchParams(window.location.search).get("splash") === "hold";
+
 /** How many seats have finished, for the live region. */
 function everyoneAnswered(seats: Record<string, { status: string }>): number {
   return Object.values(seats).filter((s) => s.status === "done").length;
@@ -166,27 +175,40 @@ export default function App() {
         )}
       </Suspense>
 
-      {/* The opening. The mark arrives before the room does, catches a light across it,
-          then collapses into the point that becomes the table's centre lamp -- so the
-          splash hands off to the formation instead of cutting to it. Timings come from
-          the same constants the 3D sequence reads, passed down as custom properties, so
-          the card and the geometry cannot drift apart. */}
-      {phase === "forming" && elapsed < formation.ring && (
+      {/* The opening.
+          A drop of gold falls out of the dark, lands, and the impact rings outward. What
+          it leaves behind is a burning circle -- and that circle is the light on the
+          council table, seen before there is a table. It holds with the mark and the
+          name, then rushes forward until it fills the screen, and the room assembles
+          around the light you just fell into.
+
+          Black and gold throughout: the room's own two colours, so the opening is the
+          same place rather than a card in front of it. Timings come from the constants
+          the 3D formation reads, so the card cannot drift from the geometry. */}
+      {(HOLD_SPLASH || (phase === "forming" && elapsed < formation.ring)) && (
         <div
           className="splash"
           style={{
-            "--splash-in": `${formation.splashSweep - formation.splashIn}ms`,
-            "--splash-sweep-at": `${formation.splashSweep}ms`,
-            "--splash-out-at": `${formation.splashOut}ms`,
+            "--fall": `${formation.dropLand - formation.dropFall}ms`,
+            "--land-at": `${formation.dropLand}ms`,
+            "--mark-at": `${formation.markIn}ms`,
+            "--out-at": HOLD_SPLASH ? "999s" : `${formation.splashOut}ms`,
+            "--out": `${formation.seedIn - formation.splashOut}ms`,
           } as React.CSSProperties}
           aria-hidden
         >
-          <div className="splash__stage">
+          {/* The falling drop, and the ring its impact throws off. */}
+          <span className="splash__drop" />
+          <span className="splash__ripple" />
+
+          {/* What the drop becomes. This is the table's centre light, early. */}
+          <span className="splash__orb" />
+
+          <div className="splash__type">
             <span className="splash__mark" />
-            <span className="splash__sweep" />
+            <h1 className="splash__word">LLM Council</h1>
+            <p className="splash__tag">Four minds, one verdict</p>
           </div>
-          <h1 className="splash__word">LLM Council</h1>
-          <p className="splash__tag">Four minds, one verdict</p>
         </div>
       )}
 
