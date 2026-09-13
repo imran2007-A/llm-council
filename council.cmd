@@ -34,11 +34,15 @@ if not exist "static_web\index.html" (
   popd
 )
 
-rem Give the server a few seconds to bind before the browser asks for the page.
-start "" /b powershell -NoProfile -Command "Start-Sleep -Seconds 4; Start-Process 'http://127.0.0.1:8000/'"
+rem Wait until the server actually answers before opening the browser.
+rem A fixed delay was wrong: uvicorn takes eight or nine seconds to bind on a
+rem cold start, the browser arrived after four, and the first thing anyone saw
+rem was "site can't be reached".
+start "" /b powershell -NoProfile -Command "for($i=0;$i -lt 120;$i++){ try{ $null = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/config' -UseBasicParsing -TimeoutSec 1; Start-Process 'http://127.0.0.1:8000/'; break } catch { Start-Sleep -Milliseconds 400 } }"
 
 echo.
-echo   LLM Council is starting...
+echo   Starting. The browser opens when the council is ready
+echo   ^(about ten seconds on a cold start^).
 echo   http://127.0.0.1:8000/
 echo.
 echo   Close this window to stop it.
