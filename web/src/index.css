@@ -93,114 +93,134 @@ textarea, input { caret-color: var(--brass-light); }
 
 /* ---------------------------------------------------------------------- splash */
 
-/* The opening is a doorway, not a title card. Everything animates on transform and
-   opacity, so the whole sequence stays on the compositor while the 3D scene is
-   simultaneously compiling shaders and building its first frames. */
+/* The opening card. Everything here is transform, opacity and filter -- no layout
+   property is animated, so the whole sequence stays on the compositor while the 3D
+   scene is simultaneously building its first frames. */
 
 .splash {
   position: absolute;
   inset: 0;
   z-index: var(--layer-splash);
-  overflow: hidden;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0;
+  text-align: center;
   pointer-events: none;
-  /* Transparent: the brass is painted by the SVG, which has the hole in it. A background
-     here would sit behind the doorway and you would fall through into more splash. */
-  background: transparent;
+  background: var(--void);
+  animation: splash-curtain 620ms var(--ease-out) var(--splash-out-at) both;
 }
 
-.splash__door {
+.splash__stage {
+  position: relative;
+  width: clamp(84px, 13vw, 140px);
+  aspect-ratio: 1;
+  margin-bottom: 1.4rem;
+  /* The mark and its highlight collapse together into the point the room grows from. */
+  animation: splash-collapse var(--dur-slow) cubic-bezier(0.7, 0, 0.84, 0) var(--splash-out-at) both;
+}
+
+.splash__mark,
+.splash__sweep {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
+  mask-image: url(/brand/logo.png);
+  -webkit-mask-image: url(/brand/logo.png);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
 }
 
-/* The rush. Accelerating, not decelerating: a doorway you are moving toward gets closer
-   slowly and then arrives all at once. An ease-out here reads as the mark politely
-   growing, which is the thing this replaces. */
-.splash__zoom {
-  transform-origin: 50px 43px;
-  animation:
-    door-settle var(--splash-in) cubic-bezier(0.16, 1, 0.3, 1) both,
-    door-rush var(--splash-out) cubic-bezier(0.7, 0, 0.9, 0.2) var(--splash-out-at) both;
+/* The mark itself: struck brass, lit from above. */
+.splash__mark {
+  background: linear-gradient(170deg, var(--brass-light) 0%, var(--brass) 55%, var(--amber-dim) 100%);
+  animation: splash-strike var(--splash-in) cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes door-settle {
-  from { transform: scale(0.82); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* 34 is enough for the ring's interior to clear the corners of a wide monitor. */
-@keyframes door-rush {
-  from { transform: scale(1); }
-  to { transform: scale(34); }
-}
-
-.splash__rim {
-  fill: none;
-  stroke: var(--void);
-  stroke-width: 0.6;
-  opacity: 0.55;
-}
-
-/* The five seats, arriving one after another around the ring. A stagger here is not
-   decoration: it is the only place in the opening that says how many there are. */
-.splash__seat {
-  fill: var(--void);
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: seat-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(180ms + var(--i) * 70ms);
-}
-
-@keyframes seat-in {
-  from { transform: scale(0); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.splash__type {
-  position: absolute;
-  left: 0; right: 0;
-  /* Clear of the ring. The mark sits above centre and the type below it, so neither has
-     to fight the other for the middle of the frame. */
-  bottom: 9%;
-  text-align: center;
-  /* Near-black on brass: the type is the counter-colour to the field, same as the mark. */
-  color: var(--void);
-  animation: type-out var(--splash-out) ease-in var(--splash-out-at) both;
+/* A band of light travelling across the metal. Masked by the same logo, so the highlight
+   exists only on the mark and never as a rectangle floating over black. */
+.splash__sweep {
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.92) 50%,
+    transparent 62%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: splash-sweep 1000ms cubic-bezier(0.33, 0, 0.2, 1) var(--splash-sweep-at) both;
 }
 
 .splash__word {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 400;
-  font-size: clamp(2rem, 5.6vw, 4rem);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--void);
-  animation: type-rise var(--dur-slow) var(--ease-out) 180ms both;
+  font-weight: 300;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  animation: splash-rise 900ms var(--ease-out) 260ms both;
 }
 
 .splash__tag {
-  margin: 0.6rem 0 0;
-  font-size: 0.7rem;
+  margin: 0.5rem 0 0;
+  color: var(--brass);
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  opacity: 0.62;
-  animation: type-rise var(--dur-slow) var(--ease-out) 320ms both;
+  font-size: 0.68rem;
+  animation: splash-rise 900ms var(--ease-out) 440ms both;
 }
 
-@keyframes type-rise {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: none; }
+/* Never from scale(0): a mark that grows out of nothing reads as a loading spinner.
+   0.86 with a little blur reads as something arriving from depth. */
+@keyframes splash-strike {
+  from { opacity: 0; transform: scale(0.86); filter: blur(7px) brightness(1.8); }
+  to   { opacity: 1; transform: scale(1); filter: blur(0) brightness(1); }
 }
 
-/* The type is on the far side of the doorway, so it leaves before you pass through it
-   rather than being dragged along. */
-@keyframes type-out {
-  from { opacity: 1; transform: none; }
-  to { opacity: 0; transform: translateY(-24px); }
+@keyframes splash-sweep {
+  0%   { opacity: 0; transform: translateX(-115%); }
+  18%  { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(115%); }
+}
+
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Accelerating in, so it reads as being pulled down into the room rather than shrinking
+   politely. It lands as a bright point exactly where the table's lamp appears. */
+@keyframes splash-collapse {
+  from { opacity: 1; transform: scale(1); filter: brightness(1); }
+  70%  { opacity: 1; filter: brightness(2.6); }
+  to   { opacity: 0; transform: scale(0.04); filter: brightness(4); }
+}
+
+/* The black lifts a beat after the mark has gone, so the room is already forming
+   underneath rather than starting once the curtain is clear. */
+@keyframes splash-curtain {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.splash__word,
+.splash__tag { animation-fill-mode: both; }
+.splash__word { animation-name: splash-rise, splash-fade-out; }
+.splash__tag { animation-name: splash-rise, splash-fade-out; }
+.splash__word,
+.splash__tag {
+  animation-duration: 900ms, var(--dur-slow);
+  animation-delay: 260ms, var(--splash-out-at);
+  animation-timing-function: var(--ease-out), ease-in;
+}
+.splash__tag { animation-delay: 440ms, var(--splash-out-at); }
+
+@keyframes splash-fade-out {
+  to { opacity: 0; transform: translateY(-10px); }
 }
 
 .prompt-hint {
