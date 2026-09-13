@@ -98,21 +98,6 @@ export const layers = {
   instrument: 90,     // the perf readout, which is a tool and sits above the product
 } as const;
 
-/**
- * Injected once at startup so CSS and three.js cannot disagree about a colour.
- *
- * This was exported, documented, and imported by nothing -- and the two files had already
- * drifted (inkFaint here still read #6b5d4d after the CSS was raised to #97846e for
- * contrast). Now applyTheme() actually writes these onto :root at boot, so the palette
- * has one owner and the stylesheet's own values are the fallback, not a second source.
- */
-export function cssVariables(): string {
-  const lines = Object.entries(palette).map(([k, v]) => `  --${k}: ${v};`);
-  const seats = Object.entries(seatColors).map(([k, v]) => `  --seat-${k}: ${v};`);
-  return `:root{\n${lines.join("\n")}\n${seats.join("\n")}\n  --font-display:${font.display};\n  --font-body:${font.body};\n  --ease-out:${motion.out};\n  --ease-settle:${motion.settle};\n}`;
-}
-
-
 /** Write the palette onto :root. Called once from main.tsx before React mounts. */
 export function applyTheme(): void {
   const root = document.documentElement;

@@ -6,7 +6,7 @@ import {
 import { MeshStandardMaterial } from "three";
 import type { BufferGeometry, Group, Mesh } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { hex, palette, seatColor } from "../theme";
+import { hex, palette } from "../theme";
 import type { SeatState } from "../types";
 
 /**
@@ -284,7 +284,4 @@ export function MannequinHitBox({ onOver, onOut, onClick }: {
     </mesh>
   );
 }
-
-/** Kept so the accent colour has one owner even when a seat id is unknown. */
-export const mannequinAccent = seatColor;
 

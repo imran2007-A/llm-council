@@ -25,9 +25,6 @@ export type Phase =
   /** Stage 3: the Chairman's verdict is on screen. */
   | "verdict";
 
-export const PHASE_ORDER: Phase[] = [
-  "forming", "ready", "asking", "answering", "deliberating", "ranked", "tabulate", "verdict",
-];
 
 /**
  * Formation choreography, in ms from the start of the sequence.
