@@ -23,6 +23,15 @@ const CouncilScene = lazy(() =>
  */
 const DRY_RUN = new URLSearchParams(window.location.search).has("dry");
 
+/**
+ * ?splash=hold keeps the opening on screen instead of letting it play out.
+ *
+ * The sequence lasts two seconds. Judging it, or catching a frame of it, in two seconds
+ * is not work anyone can do reliably -- the animation is over before a screenshot lands.
+ * The flag freezes it at the end of its entrance, with the rush still to come.
+ */
+const HOLD_SPLASH = new URLSearchParams(window.location.search).get("splash") === "hold";
+
 /** How many seats have finished, for the live region. */
 function everyoneAnswered(seats: Record<string, { status: string }>): number {
   return Object.values(seats).filter((s) => s.status === "done").length;
@@ -166,27 +175,63 @@ export default function App() {
         )}
       </Suspense>
 
-      {/* The opening. The mark arrives before the room does, catches a light across it,
-          then collapses into the point that becomes the table's centre lamp -- so the
-          splash hands off to the formation instead of cutting to it. Timings come from
-          the same constants the 3D sequence reads, passed down as custom properties, so
-          the card and the geometry cannot drift apart. */}
-      {phase === "forming" && elapsed < formation.ring && (
+      {/* The opening.
+          A splash that fades a logo in and out is a title card: it happens in front of
+          the product and then gets out of the way. This one is a doorway. The council
+          mark -- a ring with five seats on it -- sits on a field of brass, and then the
+          ring rushes forward until its own interior is the whole screen and you are
+          inside the dark chamber it was a picture of. The mark does not leave; you pass
+          through it.
+
+          It also starts on light and ends in dark, so arriving in the room reads as
+          arriving somewhere rather than as a page loading. Timings come from the same
+          constants the 3D formation reads. */}
+      {(HOLD_SPLASH || (phase === "forming" && elapsed < formation.ring)) && (
         <div
           className="splash"
           style={{
             "--splash-in": `${formation.splashSweep - formation.splashIn}ms`,
-            "--splash-sweep-at": `${formation.splashSweep}ms`,
-            "--splash-out-at": `${formation.splashOut}ms`,
+            "--splash-hold-at": `${formation.splashHold}ms`,
+            "--splash-out-at": HOLD_SPLASH ? "999s" : `${formation.splashOut}ms`,
+            "--splash-out": `${formation.seedIn - formation.splashOut}ms`,
           } as React.CSSProperties}
           aria-hidden
         >
-          <div className="splash__stage">
-            <span className="splash__mark" />
-            <span className="splash__sweep" />
+          <svg className="splash__door" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              {/* The field is painted everywhere EXCEPT the ring's interior, so the ring
+                  is a hole rather than a drawing of one. Scaling the group scales the
+                  hole with it, which is the whole effect. */}
+              <mask id="council-doorway" maskUnits="userSpaceOnUse">
+                <rect x="-150" y="-150" width="400" height="400" fill="#fff" />
+                <circle cx="50" cy="43" r="10.5" fill="#000" />
+              </mask>
+            </defs>
+
+            <g className="splash__zoom">
+              <rect x="-150" y="-150" width="400" height="400" fill="var(--brass)" mask="url(#council-doorway)" />
+              {/* The rim of the doorway, and five seats around it. */}
+              <circle className="splash__rim" cx="50" cy="43" r="10.5" />
+              {[0, 1, 2, 3, 4].map((i) => {
+                const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+                return (
+                  <circle
+                    key={i}
+                    className="splash__seat"
+                    style={{ "--i": i } as React.CSSProperties}
+                    cx={50 + Math.cos(a) * 15.5}
+                    cy={43 + Math.sin(a) * 15.5}
+                    r="1.5"
+                  />
+                );
+              })}
+            </g>
+          </svg>
+
+          <div className="splash__type">
+            <h1 className="splash__word">LLM Council</h1>
+            <p className="splash__tag">Four minds, one verdict</p>
           </div>
-          <h1 className="splash__word">LLM Council</h1>
-          <p className="splash__tag">Four minds, one verdict</p>
         </div>
       )}
 
