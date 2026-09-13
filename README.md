@@ -31,9 +31,12 @@ is no second window and Node is not needed to run it. Closing the window stops t
 The first launch builds the interface once (that step does need Node). After that it
 starts in a couple of seconds.
 
-To put it on the desktop or taskbar: right-click `council.cmd` -> **Show more options** ->
-**Send to** -> **Desktop (create shortcut)**. Pin that shortcut to the taskbar or Start if
-you want it one click away.
+Both have desktop shortcuts carrying the council icon (`council.ico`). To recreate them
+after moving the project, or to make more, right-click the `.cmd` -> **Show more options**
+-> **Send to** -> **Desktop (create shortcut)**, then right-click the new shortcut ->
+**Properties** -> **Change Icon** -> browse to `council.ico`.
+
+Pin either shortcut to the taskbar or Start to have it one click away.
 
 ---
 
