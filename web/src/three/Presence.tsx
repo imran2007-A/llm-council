@@ -4,7 +4,7 @@ import { useMemo, useRef } from "react";
 import { MathUtils } from "three";
 import type { Group, Mesh, MeshStandardMaterial } from "three";
 import { hex, palette } from "../theme";
-import type { SeatState } from "../types";
+import type { SeatConfig, SeatState } from "../types";
 
 /**
  * What occupies a chair, and the emblem that hovers above it.
@@ -191,7 +191,11 @@ export function SeatEmblem({
           } as React.CSSProperties}
           onPointerEnter={() => onHover(true)}
           onPointerLeave={() => onHover(false)}
-          onClick={() => interactive && onClick()}
+          /* The emblem is a DOM overlay sitting on the canvas, so a click on it hits no
+             3D object and R3F counts it as a miss -- which is what dismisses an open
+             card. Without this the card opened and closed in the same gesture. */
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); if (interactive) onClick(); }}
           role={interactive ? "button" : undefined}
           tabIndex={interactive ? 0 : -1}
           onKeyDown={(e) => {
@@ -215,5 +219,54 @@ export function SeatEmblem({
         </Html>
       </Billboard>
     </group>
+  );
+}
+
+/* ------------------------------------------------------------------- the seat card */
+
+/**
+ * Who this member is, on a small pane of glass above their chair.
+ *
+ * The emblems did nothing until a model had answered, which meant that for the whole time
+ * the room is just sitting there -- which is most of the time -- five of the most
+ * interesting objects on screen were inert. Clicking one now says who is in that seat.
+ *
+ * Rendered without distanceFactor on purpose: the emblem scales with distance because it
+ * is an object in the room, but this is text, and text that shrinks with perspective is
+ * text nobody reads. It is anchored in 3D and sized in pixels.
+ */
+export function SeatCard({
+  seat, accent, onClose,
+}: {
+  seat: SeatConfig;
+  accent: string;
+  onClose: () => void;
+}) {
+  return (
+    <Billboard position={[0, 2.5, 0]}>
+      <Html center zIndexRange={[30, 10]} style={{ pointerEvents: "auto" }}>
+        <aside
+          className="seatcard"
+          style={{ "--accent": accent } as React.CSSProperties}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <header className="seatcard__head">
+            <span
+              className="seatcard__mark"
+              aria-hidden
+              style={{ "--mark": `url(/brand/emblem-${seat.id}.png)` } as React.CSSProperties}
+            />
+            <h3>{seat.label}</h3>
+            <button className="seatcard__close" onClick={onClose} aria-label="Close">
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </header>
+          <p className="seatcard__meta">{seat.provider} · {seat.model}</p>
+          {seat.blurb && <p className="seatcard__blurb">{seat.blurb}</p>}
+        </aside>
+      </Html>
+    </Billboard>
   );
 }

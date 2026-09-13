@@ -549,3 +549,134 @@
   cursor: pointer;
   font: inherit;
 }
+
+/* ==================================================================== seat card */
+
+/* Who is in this chair, on a small pane of glass.
+ *
+ * Glass is used here rather than a solid panel because the card floats in the room over
+ * a live 3D scene, and a solid rectangle would read as a browser window pasted on top of
+ * a photograph. The blur is doing real work: it separates the text from whatever is
+ * moving behind it without hiding the room. That is the one case where this material is
+ * honest, and it is not used anywhere else in the app.
+ *
+ * Each card is tinted with its own member's accent, so the five are told apart by colour
+ * before a word is read. */
+
+.seatcard {
+  width: 15.5rem;
+  padding: 0.85rem 0.95rem 1rem;
+  border-radius: 14px;
+  text-align: left;
+  cursor: default;
+
+  /* The material: a tint of the member's colour over a dark base, lifted by a bright
+     top edge so it reads as a lit surface rather than a translucent hole. */
+  background:
+    linear-gradient(160deg,
+      color-mix(in oklab, var(--accent) 22%, transparent),
+      color-mix(in oklab, var(--accent) 7%, transparent) 46%,
+      rgba(10, 8, 6, 0.55)),
+    rgba(18, 14, 10, 0.55);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px color-mix(in oklab, var(--accent) 26%, transparent),
+    0 18px 40px -18px rgba(0, 0, 0, 0.9);
+
+  animation: seatcard-in var(--dur-normal) var(--ease-out) both;
+}
+
+/* Arrives from just below its emblem, scaling from 0.94 rather than from nothing: a card
+   that grows out of zero reads as a spinner, not as something being handed to you. */
+@keyframes seatcard-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.94); filter: blur(3px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+.seatcard__head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.seatcard__head h3 {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.seatcard__mark {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  background: var(--accent);
+  mask-image: var(--mark);
+  -webkit-mask-image: var(--mark);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+.seatcard__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.seatcard__close:hover { background: rgba(255, 255, 255, 0.14); color: var(--ink); }
+.seatcard__close:active { transform: scale(0.92); }
+
+.seatcard__meta {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+  word-break: break-word;
+}
+
+.seatcard__blurb {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* Someone who has turned transparency down has asked for the opposite of frosted glass,
+   usually because it makes text harder to read. They get a solid card with the tint kept
+   as a border, so the member's colour still identifies it. */
+@media (prefers-reduced-transparency: reduce) {
+  .seatcard {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent),
+      0 18px 40px -18px rgba(0, 0, 0, 0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seatcard { animation: seatcard-fade var(--dur-fast) ease both; }
+  @keyframes seatcard-fade { from { opacity: 0; } to { opacity: 1; } }
+}

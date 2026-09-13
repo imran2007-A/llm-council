@@ -64,6 +64,11 @@ class Seat:
     label: str       # what a human sees
     provider: str
     model: str
+    # Two sentences on who this member is, shown when you click their emblem at the
+    # table. Lives here rather than in the frontend because the seat roster is already
+    # the one place a member is described, and a second list in TypeScript would drift
+    # from it the first time a model is swapped out.
+    blurb: str = ""
     # Tried in order if the primary is overloaded or retired, as (provider, model) pairs.
     # Crossing providers matters: when Google is saturated, every Gemini model is
     # saturated, so a same-provider fallback chain just fails four times more slowly.
@@ -90,13 +95,21 @@ GEMINI_FALLBACKS = (
 
 SEATS = [
     Seat("nemotron", "Nemotron 3 Super 120B", "openrouter", "nvidia/nemotron-3-super-120b-a12b:free",
+         blurb="Nvidia's open-weight flagship, and the largest model this council can "
+               "reach for free. Reasons at length and tends to hedge rather than commit.",
          fallbacks=(("openrouter", "nvidia/nemotron-3-ultra-550b-a55b:free"),)),
     Seat("gptoss",   "GPT-OSS 120B",          "groq",       "openai/gpt-oss-120b",
+         blurb="OpenAI's open-weight release, served by Groq and answering faster than "
+               "anything else at the table. Structured, direct, rarely hedges.",
          fallbacks=(("groq", "openai/gpt-oss-20b"),)),
     Seat("qwen",     "Qwen 3.8 27B",          "groq",       "qwen/qwen3.8-27b",
+         blurb="Alibaba's open-weight model, the smallest voice here. Strong on code and "
+               "reasoning, and the most willing to disagree with the rest of the room.",
          fallbacks=(("groq", "qwen/qwen3.6-27b"),
                     ("openrouter", "nvidia/nemotron-3-super-120b-a12b:free"))),
     Seat("gemini",   "Gemini 3.8 Flash",      "google",     "gemini-3.8-flash",
+         blurb="Google's fast frontier model, and the only closed-weight member. Broad "
+               "general knowledge, and the most likely to ask what you actually meant.",
          fallbacks=GEMINI_FALLBACKS),
 ]
 
@@ -105,6 +118,9 @@ SEATS = [
 # per call, while Groq answered in under a second. Reliability beats prose quality for the one
 # step that has no fallback position, so the chair sits on Groq with Gemini behind it.
 CHAIRMAN = Seat("chairman", "Chairman (GPT-OSS 120B)", "groq", "openai/gpt-oss-120b",
+                blurb="Reads every answer and every ranking, then writes the verdict. It "
+                      "never votes -- a chair that scores the debate it is judging is not "
+                      "a chair.",
                 fallbacks=(("google", "gemini-3.8-flash"),
                            ("google", "gemini-flash-latest"),
                            ("groq", "qwen/qwen3.8-27b")))

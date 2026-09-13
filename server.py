@@ -105,12 +105,14 @@ def get_config() -> dict:
     """What the council looks like, so a UI can lay out seats before asking anything."""
     return {
         "seats": [
-            {"id": s.id, "label": s.label, "provider": s.provider, "model": s.model}
+            {"id": s.id, "label": s.label, "provider": s.provider,
+             "model": s.model, "blurb": s.blurb}
             for s in SEATS
         ],
         "chairman": {
             "id": CHAIRMAN.id, "label": CHAIRMAN.label,
             "provider": CHAIRMAN.provider, "model": CHAIRMAN.model,
+            "blurb": CHAIRMAN.blurb,
         },
         "providers": {
             name: {"rpm": p.rpm, "rpd": p.rpd} for name, p in PROVIDERS.items()

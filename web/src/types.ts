@@ -10,6 +10,8 @@ export interface SeatConfig {
   label: string;
   provider: string;
   model: string;
+  /** Two sentences on who this member is, shown when their emblem is clicked. */
+  blurb?: string;
 }
 
 export interface CouncilConfig {

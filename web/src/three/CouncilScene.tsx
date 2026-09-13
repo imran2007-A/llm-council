@@ -7,7 +7,7 @@ import { ACESFilmicToneMapping, MathUtils, Vector3 } from "three";
 import type { PointLight, SpotLight } from "three";
 import { Chair } from "./Chair";
 import { CentreButton, FormationMotes } from "./CentreButton";
-import { AbstractForm, SeatEmblem } from "./Presence";
+import { AbstractForm, SeatCard, SeatEmblem } from "./Presence";
 import { Mannequin, MannequinHitBox } from "./Mannequin";
 import { PerfReadout, QualityGovernor, disabled, useQualityTier } from "./quality";
 import { MixamoAvatar, useMixamoClips } from "./MixamoAvatar";
@@ -243,7 +243,8 @@ interface Props {
 
 function SceneContents({
   seats, chairman, seatStates, phase, elapsed, centreFocused, onCentreClick, onOpenSeat,
-}: Props) {
+  cardSeat, setCardSeat,
+}: Props & { cardSeat: string | null; setCardSeat: (id: string | null) => void }) {
   const everyone = useMemo(() => [...seats, chairman], [seats, chairman]);
   const total = everyone.length;
   const forming = phase === "forming";
@@ -419,6 +420,9 @@ function SceneContents({
                   )}
                 </group>
               )}
+              {cardSeat === seat.id && (
+                <SeatCard seat={seat} accent={accent} onClose={() => setCardSeat(null)} />
+              )}
               {showEmblems && (
                 <SeatEmblem
                   seatId={seat.id}
@@ -427,8 +431,13 @@ function SceneContents({
                   state={state}
                   hovered={isHovered}
                   onHover={(h) => setHovered(h ? seat.id : null)}
-                  onClick={() => onOpenSeat(seat.id)}
-                  interactive={Boolean(state.text || state.error)}
+                  onClick={() => {
+                    // Once a member has answered, their answer is the more useful thing
+                    // behind that mark. Before then, it is who they are.
+                    if (state.answer || state.text || state.error) onOpenSeat(seat.id);
+                    else setCardSeat(cardSeat === seat.id ? null : seat.id);
+                  }}
+                  interactive
                 />
               )}
             </group>
@@ -487,9 +496,16 @@ function SceneContents({
 export function CouncilScene(props: Props) {
   useEffect(() => () => { document.body.style.cursor = "auto"; }, []);
 
+  // Which seat is showing its card. One at a time: five open panes of glass around a
+  // table is a cluttered room, not an introduction. Lives here rather than inside the
+  // scene because dismissing it is a Canvas-level concern -- onPointerMissed fires when
+  // a click hit nothing at all, which is exactly "clicked off the card".
+  const [cardSeat, setCardSeat] = useState<string | null>(null);
+
   return (
     <div className="scene">
       <Canvas
+        onPointerMissed={() => setCardSeat(null)}
         shadows
         /* Starting dpr only. QualityGovernor owns it from the first sample onward. */
         dpr={1}
@@ -508,7 +524,7 @@ export function CouncilScene(props: Props) {
           toneMappingExposure: 0.86,
         }}
       >
-        <SceneContents {...props} />
+        <SceneContents {...props} cardSeat={cardSeat} setCardSeat={setCardSeat} />
       </Canvas>
       <PerfReadout />
     </div>
