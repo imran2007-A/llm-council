@@ -23,3 +23,6 @@ web/public/models/mixamo/_test-character.*
 # rule stay tracked -- gitignore does not apply to files git already follows, which is
 # what we want: the real-model runs cost API budget to produce and are worth keeping.
 data/conversations/
+
+# local saved conversations
+data/conversations/
